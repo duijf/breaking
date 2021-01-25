@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import dataclasses
 import enum
 import requests
 import time
