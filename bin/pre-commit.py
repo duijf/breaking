@@ -51,8 +51,8 @@ def run_lints(mode: Mode) -> None:
     check_mode = mode == Mode.CHECK
     extra_args = ["--check", "--diff"] if check_mode else []
 
-    run_lint(["black", "--quiet", repo_root] + extra_args)
-    run_lint(["isort", "--skip-gitignore", repo_root] + extra_args)
+    run_lint(["black"] + extra_args + ["--quiet", repo_root])
+    run_lint(["isort"] + extra_args + ["--skip-gitignore", repo_root])
     run_lint(["flake8", repo_root])
     run_lint(["mypy", "--strict", repo_root])
 
