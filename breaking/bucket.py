@@ -22,3 +22,6 @@ class LeakyBucket:
         self.last_drain = now
 
         return self.capacity_cur + n <= self.capacity_max
+
+    def fill(self, n: int = 1) -> None:
+        self.capacity_cur += n
