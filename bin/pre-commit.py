@@ -25,6 +25,7 @@ import os
 import pathlib
 import subprocess
 import sys
+from typing import List
 
 
 class Mode(enum.Enum):
@@ -41,7 +42,7 @@ def run_lint(command: List[str]) -> None:
     print(f"==> {command[0]}")
     try:
         subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         sys.exit(1)
 
 

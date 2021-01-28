@@ -80,14 +80,14 @@ class CircuitBreaker:
 
         # In a production implementation, catching all kinds of exceptions
         # is bad form. This should probably be configurable.
-        except Exception as e:
+        except Exception:
             # Record that the call failed and reraise the exception.
             self.record_failure()
             raise
 
     def is_open(self) -> bool:
         """
-        Check if the circuit breaker is open and we should not perform a request.
+        If the circuit breaker is open and we should not perform a request.
         """
         # Set the state back to closed if the last error was outside of the
         # time window we care about. Also reset some of the meta variables.
@@ -128,7 +128,7 @@ def main() -> None:
     for _ in range(5):
         try:
             breaker.request("GET", failing_url)
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError:
             print("Request failed")
 
     # Perform a request which should raise the CircuitOpenError.
@@ -145,5 +145,5 @@ def main() -> None:
     # Perform a few requests again (it fails again)
     try:
         breaker.request("GET", failing_url)
-    except requests.exceptions.ConnectionError as e:
+    except requests.exceptions.ConnectionError:
         print("Request failed again")
