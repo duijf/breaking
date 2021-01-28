@@ -104,7 +104,7 @@ class CircuitBreaker:
             self._state = State.OPEN
 
 
-if __name__ == "__main__":
+def main() -> None:
     failing_url = "http://localhost:5000"
     time_window_secs = 5
 
