@@ -16,10 +16,10 @@ class State(enum.Enum):
     BLOCKS_REQUESTS = enum.auto()
 
 
-class CircuitOpenError(Exception):
+class RequestBlockedError(Exception):
     """
     Exception raised by `CircuitBreaker` when asked to preform a
-    request with an open circuit.
+    request while blocking requests.
     """
 
 
@@ -63,7 +63,7 @@ class CircuitBreaker:
         print("Asked to perform request.")
 
         if self.is_blocking_requests():
-            raise CircuitOpenError(
+            raise RequestBlockedError(
                 "Circuit open. Did not perform request. Too many failures"
             )
 
@@ -126,11 +126,11 @@ def main() -> None:
         except requests.exceptions.ConnectionError:
             print("Request failed")
 
-    # Perform a request which should raise the CircuitOpenError.
+    # Perform a request which should raise the RequestBlockedError.
     # This is printed on stdout.
     try:
         breaker.request("GET", failing_url)
-    except CircuitOpenError as e:
+    except RequestBlockedError as e:
         print(e)
 
     # Wait until the error_threshold has lifted
