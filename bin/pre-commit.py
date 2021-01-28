@@ -73,7 +73,7 @@ def install_git_hook() -> None:
     # Make the script executable, respecting permissions that were
     # previously there.
     current_perms = script_file.stat().st_mode
-    script_file.chmod(current_perms + 0o111)
+    script_file.chmod(current_perms | 0o111)
 
 
 def main() -> None:
