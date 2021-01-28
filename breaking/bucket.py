@@ -18,7 +18,8 @@ class TokenBucket:
 
     def fill(self, n: int = 1) -> None:
         self._update()
-        assert self.current + n <= self.capacity
+        if self.capacity < self.current + n:
+            raise ValueError("Tried filling more than bucket capacity")
         self.current += n
 
     def _update(self) -> None:
