@@ -52,6 +52,7 @@ def run_lints(mode: Mode) -> None:
 
     run_lint(["black", "--quiet", repo_root] + extra_args)
     run_lint(["isort", "--skip-gitignore", repo_root] + extra_args)
+    run_lint(["flake8", repo_root])
     run_lint(["mypy", repo_root])
 
 
