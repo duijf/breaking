@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import enum
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -54,11 +55,26 @@ def run_lints(mode: Mode) -> None:
     run_lint(["mypy", repo_root])
 
 
+def install_git_hook() -> None:
+    script_contents = "/usr/bin/env bash\n" "$REPO_ROOT/bin/pre-commit.py\n"
+
+    repo_root = pathlib.Path(os.environ["REPO_ROOT"])
+    script_file = repo_root / ".git" / "hooks" / "pre-commit"
+
+    with script_file.open(mode="w") as f:
+        f.write(script_contents)
+
+    # Make the script executable, respecting permissions that were
+    # previously there.
+    current_perms = script_file.stat().st_mode
+    script_file.chmod(current_perms + 0o111)
+
+
 def main() -> None:
     mode = Mode.from_cli(sys.argv[1:])
 
     if mode == Mode.INSTALL:
-        raise NotImplementedError
+        install_git_hook()
     else:
         run_lints(mode)
 
