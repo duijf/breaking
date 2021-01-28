@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import enum
-import requests
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+import requests
 
 
 class State(enum.Enum):
@@ -15,6 +16,7 @@ class State(enum.Enum):
     `OPEN` means the circuit breaker was tripped and will not perform
     requests until the last failure was long enough ago.
     """
+
     CLOSED = enum.auto()
     OPEN = enum.auto()
 
@@ -46,7 +48,9 @@ class CircuitBreaker:
     # NB: It would be nice to design a mypy `Protocol` for the `http_client`
     # parameter so we could benefit from type checking. Didn't have time for
     # that though.
-    def __init__(self, http_client: Any, error_threshold: int, time_window_secs: int):
+    def __init__(
+        self, http_client: Any, error_threshold: int, time_window_secs: int
+    ):
         self._http_client = http_client
         self._error_threshold = error_threshold
         self._time_window = timedelta(seconds=time_window_secs)
@@ -64,7 +68,9 @@ class CircuitBreaker:
         print("Asked to perform request.")
 
         if self.is_open():
-            raise CircuitOpenError("Circuit open. Did not perform request. Too many failures")
+            raise CircuitOpenError(
+                "Circuit open. Did not perform request. Too many failures"
+            )
 
         print("Circuit closed. Performing request")
 
@@ -85,8 +91,12 @@ class CircuitBreaker:
         """
         # Set the state back to closed if the last error was outside of the
         # time window we care about. Also reset some of the meta variables.
-        if self._last_error <= (datetime.now(timezone.utc) - self._time_window):
-            print(f"Last error happened at {self._last_error}. Resetting state.")
+        if self._last_error <= (
+            datetime.now(timezone.utc) - self._time_window
+        ):
+            print(
+                f"Last error happened at {self._last_error}. Resetting state."
+            )
             self._state = State.CLOSED
             self._error_count_since_last_close = 0
 
@@ -111,7 +121,7 @@ def main() -> None:
     breaker = CircuitBreaker(
         http_client=requests,
         error_threshold=5,
-        time_window_secs=time_window_secs
+        time_window_secs=time_window_secs,
     )
 
     # Perform 5 failing requests.
