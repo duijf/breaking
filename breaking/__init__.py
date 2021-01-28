@@ -10,15 +10,10 @@ import requests
 class State(enum.Enum):
     """
     States for the circuit breaker.
-
-    `CLOSED` means the circuit breaker will perform requests.
-
-    `OPEN` means the circuit breaker was tripped and will not perform
-    requests until the last failure was long enough ago.
     """
 
-    CLOSED = enum.auto()
-    OPEN = enum.auto()
+    ALLOWS_REQUESTS = enum.auto()
+    BLOCKS_REQUESTS = enum.auto()
 
 
 class CircuitOpenError(Exception):
@@ -58,7 +53,7 @@ class CircuitBreaker:
         # Set the last error to the UNIX epoch. This allows us to avoid
         # a nullable variable.
         self._last_error = datetime.fromtimestamp(0, tz=timezone.utc)
-        self._state = State.CLOSED
+        self._state = State.ALLOWS_REQUESTS
         self._error_count_since_last_close = 0
 
     def request(self, method, url):
@@ -67,7 +62,7 @@ class CircuitBreaker:
         """
         print("Asked to perform request.")
 
-        if self.is_open():
+        if self.is_blocking_requests():
             raise CircuitOpenError(
                 "Circuit open. Did not perform request. Too many failures"
             )
@@ -85,9 +80,9 @@ class CircuitBreaker:
             self.record_failure()
             raise
 
-    def is_open(self) -> bool:
+    def is_blocking_requests(self) -> bool:
         """
-        If the circuit breaker is open and we should not perform a request.
+        Check if the circuit breaker is blocking requests.
         """
         # Set the state back to closed if the last error was outside of the
         # time window we care about. Also reset some of the meta variables.
@@ -97,10 +92,10 @@ class CircuitBreaker:
             print(
                 f"Last error happened at {self._last_error}. Resetting state."
             )
-            self._state = State.CLOSED
+            self._state = State.ALLOWS_REQUESTS
             self._error_count_since_last_close = 0
 
-        return self._state == State.OPEN
+        return self._state == State.BLOCKS_REQUESTS
 
     def record_failure(self) -> None:
         """
@@ -111,7 +106,7 @@ class CircuitBreaker:
 
         if self._error_count_since_last_close >= self._error_threshold:
             print("Circuit breaker triggered.")
-            self._state = State.OPEN
+            self._state = State.BLOCKS_REQUESTS
 
 
 def main() -> None:
