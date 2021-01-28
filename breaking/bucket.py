@@ -13,15 +13,17 @@ class LeakyBucket:
     )
 
     def has_capacity(self, n: int = 1) -> bool:
-        # Update the capacity calculation.
-        now = datetime.now(timezone.utc)
-        seconds_since_last_drain = int((now - self.last_drain).total_seconds())
-        self.capacity_cur = self.capacity_cur - min(
-            seconds_since_last_drain * self.drain_rate_hz, self.capacity_max
-        )
-        self.last_drain = now
-
+        self._update_capacities()
         return self.capacity_cur + n <= self.capacity_max
 
     def fill(self, n: int = 1) -> None:
+        self._update_capacities()
+        assert self.capacity_cur + n <= self.capacity_max
         self.capacity_cur += n
+
+    def _update_capacities(self) -> None:
+        now = datetime.now(timezone.utc)
+        seconds_since_last_drain = int((now - self.last_drain).total_seconds())
+        capacity_to_refill = min(seconds_since_last_drain * self.drain_rate_hz, self.capacity_max)
+        self.capacity_cur = max(self.capacity_cur - capacity_to_refill, 0)
+        self.last_drain = now
