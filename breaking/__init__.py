@@ -6,6 +6,11 @@ from typing import Any
 
 import requests
 
+# It would be nice to design a mypy `Protocol` for these types so we get
+# the benefit of extra type checking.
+HttpClient = Any
+Response = Any
+
 
 class State(enum.Enum):
     """
@@ -40,11 +45,11 @@ class CircuitBreaker:
     error again.
     """
 
-    # NB: It would be nice to design a mypy `Protocol` for the `http_client`
-    # parameter so we could benefit from type checking. Didn't have time for
-    # that though.
     def __init__(
-        self, http_client: Any, error_threshold: int, time_window_secs: int
+        self,
+        http_client: HttpClient,
+        error_threshold: int,
+        time_window_secs: int,
     ):
         self._http_client = http_client
         self._error_threshold = error_threshold
@@ -56,7 +61,7 @@ class CircuitBreaker:
         self._state = State.ALLOWS_REQUESTS
         self._error_count_since_last_close = 0
 
-    def request(self, method, url):
+    def request(self, method: str, url: str) -> Response:
         """
         Make a HTTP request to `url` using `method`.
         """
