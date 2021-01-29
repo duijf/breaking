@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 @dataclass
 class TokenBucket:
     capacity: int
-    drain_rate_hz: int
+    drain_rate_hz: float
     current: int = field(default=0, init=False)
     last_drain: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -26,7 +26,7 @@ class TokenBucket:
         now = datetime.now(timezone.utc)
         seconds_since_last_drain = int((now - self.last_drain).total_seconds())
         capacity_to_refill = min(
-            seconds_since_last_drain * self.drain_rate_hz, self.capacity
+            int(seconds_since_last_drain * self.drain_rate_hz), self.capacity
         )
         self.current = max(self.current - capacity_to_refill, 0)
         self.last_drain = now
