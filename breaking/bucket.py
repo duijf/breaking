@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -41,6 +42,18 @@ class TokenBucket:
 
     def __post_init__(self) -> None:
         self.capacity_current = self.capacity_max
+
+        if self.capacity_max < 1:
+            raise ValueError("capacity_max must be >= 1")
+
+        if self.restore_rate_hz < 1:
+            raise ValueError("restore_rate_hz must be >= 1")
+
+        if math.isnan(self.restore_rate_hz):
+            raise ValueError("restore_rate_hz cannot be NaN")
+
+        if math.isinf(self.restore_rate_hz):
+            raise ValueError("restore_rate_hz cannot be Inf")
 
     def has_capacity(self, n: int = 1) -> bool:
         """
