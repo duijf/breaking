@@ -43,25 +43,42 @@ class TokenBucket:
         self.capacity_current = self.capacity_max
 
     def has_capacity(self, n: int = 1) -> bool:
+        """
+        Does the bucket have capacity for `n` more items?
+        """
         self._update()
         return self.capacity_current - n > 0
 
     def fill(self, n: int = 1) -> None:
+        """
+        Fill the bucket with `n` extra items.
+
+        It is the responsibility of the caller to check whether the bucket has
+        enough capacity first. Otherwise, the caller risks being thrown
+        exceptions.
+
+        Raises
+          ValueError - when the bucket does not have enough capacity to store
+            `n` extra values.
+        """
         self._update()
         if self.capacity_current - n < 0:
             raise ValueError("Tried filling more than bucket capacity")
         self.capacity_current -= n
 
     def _update(self) -> None:
+        """
+        Update the current capacity based on the restore rate.
+        """
         now = datetime.now(timezone.utc)
         seconds_since_last_drain = int(
             (now - self.last_restore).total_seconds()
         )
-        capacity_to_refill = min(
+        capacity_to_restore = min(
             int(seconds_since_last_drain * self.restore_rate_hz),
             self.capacity_max,
         )
         self.capacity_current = min(
-            self.capacity_current + capacity_to_refill, self.capacity_max
+            self.capacity_current + capacity_to_restore, self.capacity_max
         )
         self.last_restore = now
