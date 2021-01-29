@@ -1,24 +1,14 @@
-#!/usr/bin/env python
-import enum
 import time
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
+
+from breaking.bucket import TokenBucket
 
 # It would be nice to design a mypy `Protocol` for these types so we get
 # the benefit of extra type checking.
 HttpClient = Any
 Response = Any
-
-
-class State(enum.Enum):
-    """
-    States for the circuit breaker.
-    """
-
-    ALLOWS_REQUESTS = enum.auto()
-    BLOCKS_REQUESTS = enum.auto()
 
 
 class RequestBlockedError(Exception):
@@ -52,14 +42,13 @@ class CircuitBreaker:
         time_window_secs: int,
     ):
         self._http_client = http_client
-        self._error_threshold = error_threshold
-        self._time_window = timedelta(seconds=time_window_secs)
 
-        # Set the last error to the UNIX epoch. This allows us to avoid
-        # a nullable variable.
-        self._last_error = datetime.fromtimestamp(0, tz=timezone.utc)
-        self._state = State.ALLOWS_REQUESTS
-        self._error_count_since_last_close = 0
+        drain_rate_hz = error_threshold / time_window_secs
+
+        self._bucket = TokenBucket(
+            capacity=error_threshold,
+            drain_rate_hz=drain_rate_hz,
+        )
 
     def request(self, method: str, url: str) -> Response:
         """
@@ -69,10 +58,10 @@ class CircuitBreaker:
 
         if self.is_blocking_requests():
             raise RequestBlockedError(
-                "Circuit open. Did not perform request. Too many failures"
+                "Not performing request. Too many failures"
             )
 
-        print("Circuit closed. Performing request")
+        print("Performing request")
 
         try:
             response = self._http_client.request(method, url)
@@ -85,33 +74,29 @@ class CircuitBreaker:
             self.record_failure()
             raise
 
+    def is_allowing_requests(self) -> bool:
+        """
+        Check if the circuit breaker is allowing requests.
+        """
+        return self._bucket.has_capacity()
+
     def is_blocking_requests(self) -> bool:
         """
         Check if the circuit breaker is blocking requests.
         """
-        # Set the state back to closed if the last error was outside of the
-        # time window we care about. Also reset some of the meta variables.
-        if self._last_error <= (
-            datetime.now(timezone.utc) - self._time_window
-        ):
-            print(
-                f"Last error happened at {self._last_error}. Resetting state."
-            )
-            self._state = State.ALLOWS_REQUESTS
-            self._error_count_since_last_close = 0
-
-        return self._state == State.BLOCKS_REQUESTS
+        return not self._bucket.has_capacity()
 
     def record_failure(self) -> None:
         """
         Record a failed call in the state of this circuit breaker.
         """
-        self._last_error = datetime.now(timezone.utc)
-        self._error_count_since_last_close += 1
-
-        if self._error_count_since_last_close >= self._error_threshold:
-            print("Circuit breaker triggered.")
-            self._state = State.BLOCKS_REQUESTS
+        try:
+            self._bucket.fill()
+        except ValueError:
+            # We performed a request that we didn't have capacity
+            # for. This can happen because nothing is thread safe
+            # yet. Just ignore this for now.
+            pass
 
 
 def main() -> None:
