@@ -43,11 +43,11 @@ class CircuitBreaker:
     ):
         self._http_client = http_client
 
-        drain_rate_hz = error_threshold / time_window_secs
+        restore_rate_hz = error_threshold / time_window_secs
 
         self._bucket = TokenBucket(
-            capacity=error_threshold,
-            drain_rate_hz=drain_rate_hz,
+            capacity_max=error_threshold,
+            restore_rate_hz=restore_rate_hz,
         )
 
     def request(self, method: str, url: str) -> Response:
