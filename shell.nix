@@ -14,4 +14,9 @@ pkgs.mkShell {
   buildInputs = [
     pythonEnv
   ];
+
+  shellHook = ''
+    mkdir -p $REPO_ROOT/.env/bin
+    ln -sf $(which python) $REPO_ROOT/.env/bin/python
+  '';
 }

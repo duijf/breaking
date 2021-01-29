@@ -1,2 +1,5 @@
 __pycache__
 .mypy_cache
+
+# Python env created by nix-shell
+.env
