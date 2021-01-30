@@ -9,7 +9,6 @@ failing_url = "http://localhost:5000"
 time_window_secs = 5
 
 breaker = CircuitBreaker(
-    http_client=requests,
     error_threshold=5,
     time_window_secs=time_window_secs,
 )
@@ -17,14 +16,16 @@ breaker = CircuitBreaker(
 # Perform 5 failing requests.
 for _ in range(5):
     try:
-        breaker.request("GET", failing_url)
+        with breaker:
+            requests.get(failing_url)
     except requests.exceptions.ConnectionError:
         print("Request failed")
 
 # Perform a request which should raise the RequestBlockedError.
 # This is printed on stdout.
 try:
-    breaker.request("GET", failing_url)
+    with breaker:
+        requests.get(failing_url)
 except RequestBlockedError as e:
     print(e)
 
@@ -34,6 +35,7 @@ time.sleep(time_window_secs)
 
 # Perform a few requests again (it fails again)
 try:
-    breaker.request("GET", failing_url)
+    with breaker:
+        requests.get(failing_url)
 except requests.exceptions.ConnectionError:
     print("Request failed again")

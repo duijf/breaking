@@ -1,12 +1,7 @@
 from types import TracebackType
-from typing import Any, Optional, Tuple, Type
+from typing import Optional, Tuple, Type
 
 from breaking.bucket import TokenBucket
-
-# It would be nice to design a mypy `Protocol` for these types so we get
-# the benefit of extra type checking.
-HttpClient = Any
-Response = Any
 
 
 class RequestBlockedError(Exception):
@@ -19,11 +14,6 @@ class RequestBlockedError(Exception):
 class CircuitBreaker:
     """
     A toy circuit breaker in Python for HTTP requests.
-
-    Will use `http_client.request()` to perform requests. This method
-    assumes the API contract of the `requests` library. This could be
-    a little more library agnostic, but this wasn't clear from the
-    requirements.
 
     Allows a maximum number of `error_threshold` errors over a time
     window of `time_window_secs`. After this threshold has been exceeded,
@@ -41,12 +31,10 @@ class CircuitBreaker:
 
     def __init__(
         self,
-        http_client: HttpClient,
         error_threshold: int,
         time_window_secs: int,
         exceptions_kinds: Tuple[Type[Exception], ...] = (Exception,),
     ):
-        self._http_client = http_client
         self._exception_kinds = exceptions_kinds
 
         restore_rate_hz = error_threshold / time_window_secs
@@ -68,14 +56,15 @@ class CircuitBreaker:
         exc_type: Optional[Type[BaseException]],
         exc_value: Optional[BaseException],
         exc_traceback: Optional[TracebackType],
-    ) -> bool:
+    ) -> None:
         """Exit the context manager.
 
         If this method returns `True`, the runtime will ignore any raised
-        exceptions in the body of the contextmanager.
+        exceptions in the body of the contextmanager. We don't use this
+        feature, so this method returns `None`.
         """
         if exc_type is None:
-            return False
+            return
 
         # Check whether the raised exception is part of the configured
         # exceptions that the user wants to count. If so, record an extra
@@ -83,17 +72,6 @@ class CircuitBreaker:
         for kind in self._exception_kinds:
             if issubclass(exc_type, kind):
                 self.record_failure()
-
-        return False
-
-    def request(self, method: str, url: str) -> Response:
-        """
-        Make a HTTP request to `url` using `method`.
-        """
-        with self:
-            print("Performing request")
-            response = self._http_client.request(method, url)
-            return response
 
     def is_allowing_requests(self) -> bool:
         """
