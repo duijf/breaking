@@ -24,12 +24,11 @@ class CircuitBreaker:
     a little more library agnostic, but this wasn't clear from the
     requirements.
 
-    Stops allowing requests after `error_threshold` number of errors
-    have happened. (NB: This does not consider the `time_window_secs`
-    parameter like you'd probably expect.)
+    Allows a maximum number of `error_threshold` errors over a time
+    window of `time_window_secs`. After this threshold has been exceeded,
+    we disallow any further requests until enough time has passed.
 
-    Starts allowing requests after `time_window_secs` since the last
-    error again.
+    See `TokenBucket` for further details on how requests are replenished.
     """
 
     def __init__(
