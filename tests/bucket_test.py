@@ -3,7 +3,7 @@ import time
 
 import hypothesis.strategies as st
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 
 from breaking.bucket import TokenBucket
 
@@ -25,6 +25,8 @@ def test_bucket_init_validation() -> None:
         min_value=1, allow_nan=False, allow_infinity=False
     ),
 )
+@example(capacity_max=2, restore_rate_hz=1.0)
+@example(capacity_max=1, restore_rate_hz=1.0)
 def test_bucket_capacity_refils(
     capacity_max: int, restore_rate_hz: float
 ) -> None:
