@@ -56,7 +56,7 @@ class TokenBucket:
         if math.isinf(self.restore_rate_hz):
             raise ValueError("restore_rate_hz cannot be Inf")
 
-    def has_capacity(self, n: int = 1) -> bool:
+    def has_tokens_left(self, n: int = 1) -> bool:
         """
         Does the bucket have capacity for `n` more items?
         """

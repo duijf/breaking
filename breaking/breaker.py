@@ -75,13 +75,13 @@ class CircuitBreaker:
         """
         Check if the circuit breaker is allowing requests.
         """
-        return self._bucket.has_capacity()
+        return self._bucket.has_tokens_left()
 
     def is_blocking_requests(self) -> bool:
         """
         Check if the circuit breaker is blocking requests.
         """
-        return not self._bucket.has_capacity()
+        return not self.is_allowing_requests()
 
     def record_failure(self) -> None:
         """

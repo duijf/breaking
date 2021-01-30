@@ -34,11 +34,11 @@ def test_bucket_capacity_refils(
     bucket = TokenBucket(
         capacity_max=capacity_max, restore_rate_hz=restore_rate_hz, clock=clock
     )
-    assert bucket.has_capacity()
+    assert bucket.has_tokens_left()
     bucket.take(capacity_max)
-    assert not bucket.has_capacity()
+    assert not bucket.has_tokens_left()
     clock.advance_by(1.0)
-    assert bucket.has_capacity(min(capacity_max, int(restore_rate_hz)))
+    assert bucket.has_tokens_left(min(capacity_max, int(restore_rate_hz)))
 
 
 def test_bucket_does_not_refill_beyond_max_capacity() -> None:
@@ -46,7 +46,7 @@ def test_bucket_does_not_refill_beyond_max_capacity() -> None:
     bucket = TokenBucket(capacity_max=50, restore_rate_hz=10000, clock=clock)
     clock.advance_by(2)
     bucket.take(50)
-    assert not bucket.has_capacity()
+    assert not bucket.has_tokens_left()
 
 
 def test_bucket_fill_more_than_capacity() -> None:
