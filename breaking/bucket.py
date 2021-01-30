@@ -60,6 +60,8 @@ class TokenBucket:
         """
         Does the bucket have capacity for `n` more items?
         """
+        assert n >= 1, "`n` must be >= 1"
+
         self._update()
         return self.capacity_current - n >= 0
 
@@ -74,6 +76,8 @@ class TokenBucket:
         Raises
           ValueError - when the bucket does not have enough tokens to take.
         """
+        assert n >= 1, "`n` must be >= 1"
+
         self._update()
         if self.capacity_current - n < 0:
             raise ValueError("Tried filling more than bucket capacity")
