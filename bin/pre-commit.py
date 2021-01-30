@@ -61,7 +61,7 @@ def install_git_hook() -> None:
     script_contents = (
         "/usr/bin/env bash\n"
         "set -eufo pipefail\n"
-        "$REPO_ROOT/bin/pre-commit.py\n"
+        "$REPO_ROOT/bin/pre-commit.py --check\n"
     )
 
     repo_root = pathlib.Path(os.environ["REPO_ROOT"])
