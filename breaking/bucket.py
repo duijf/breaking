@@ -60,7 +60,7 @@ class TokenBucket:
         Does the bucket have capacity for `n` more items?
         """
         self._update()
-        return self.capacity_current - n > 0
+        return self.capacity_current - n >= 0
 
     def fill(self, n: int = 1) -> None:
         """
