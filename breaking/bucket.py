@@ -63,17 +63,16 @@ class TokenBucket:
         self._update()
         return self.capacity_current - n >= 0
 
-    def fill(self, n: int = 1) -> None:
+    def take(self, n: int = 1) -> None:
         """
-        Fill the bucket with `n` extra items.
+        Take `n` items from the bucket.
 
         It is the responsibility of the caller to check whether the bucket has
-        enough capacity first. Otherwise, the caller risks being thrown
+        enough tokens to take first. Otherwise, the caller risks being thrown
         exceptions.
 
         Raises
-          ValueError - when the bucket does not have enough capacity to store
-            `n` extra values.
+          ValueError - when the bucket does not have enough tokens to take.
         """
         self._update()
         if self.capacity_current - n < 0:
