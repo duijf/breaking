@@ -3,6 +3,7 @@ let
   pythonEnv = pkgs.python39.withPackages (ps: [
     ps.black
     ps.flake8
+    ps.flask
     ps.hypothesis
     ps.isort
     ps.mypy
