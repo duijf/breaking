@@ -27,6 +27,19 @@ def open_port() -> int:
 
 
 @pytest.fixture
+def breaker() -> CircuitBreaker:
+    return CircuitBreaker(
+        error_threshold=5,
+        time_window_secs=1,
+    )
+
+
+@pytest.fixture
+def not_a_server_url(open_port: int) -> str:
+    return f"http://localhost:{open_port+1}"
+
+
+@pytest.fixture
 def server_url(open_port: int) -> str:
     return f"http://localhost:{open_port}"
 
@@ -45,12 +58,15 @@ def server(open_port: int) -> Iterator[None]:
     flask_proc.join()
 
 
-def test_successful_requests(server_url: str) -> None:
-    breaker = CircuitBreaker(
-        error_threshold=5,
-        time_window_secs=1,
-    )
-
+def test_successful_requests(breaker: CircuitBreaker, server_url: str) -> None:
     with breaker:
         resp = requests.get(server_url)
         assert resp.status_code == 500
+
+
+def test_exception_propagation(
+    breaker: CircuitBreaker, not_a_server_url: str
+) -> None:
+    with pytest.raises(requests.exceptions.ConnectionError):
+        with breaker:
+            requests.get(not_a_server_url)
