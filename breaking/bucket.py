@@ -1,6 +1,7 @@
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+
+from breaking.clock import Clock, MonotonicClock
 
 
 @dataclass
@@ -35,12 +36,12 @@ class TokenBucket:
     capacity_current: int = field(init=False)
 
     restore_rate_hz: float = field()
-    last_restore: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        init=False,
-    )
+    last_restore: float = field(init=False)
+
+    clock: Clock = field(default_factory=MonotonicClock)
 
     def __post_init__(self) -> None:
+        self.last_restore = self.clock.seconds_since_epoch()
         self.capacity_current = self.capacity_max
 
         if self.capacity_max < 1:
@@ -83,10 +84,9 @@ class TokenBucket:
         """
         Update the current capacity based on the restore rate.
         """
-        now = datetime.now(timezone.utc)
-        seconds_since_last_drain = int(
-            (now - self.last_restore).total_seconds()
-        )
+        now = self.clock.seconds_since_epoch()
+        seconds_since_last_drain = now - self.last_restore
+
         capacity_to_restore = min(
             int(seconds_since_last_drain * self.restore_rate_hz),
             self.capacity_max,
