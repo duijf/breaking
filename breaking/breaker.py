@@ -21,7 +21,7 @@ class CircuitBreaker:
 
     See `TokenBucket` for further details on how requests are replenished.
 
-    If `exceptions_kinds` is passed, the CircuitBreaker will only
+    If `exceptions_types` is passed, the CircuitBreaker will only
     count exceptions of the given types. All these exceptions are
     re-raised.
 
@@ -33,9 +33,9 @@ class CircuitBreaker:
         self,
         error_threshold: int,
         time_window_secs: int,
-        exceptions_kinds: Tuple[Type[Exception], ...] = (Exception,),
+        exceptions_types: Tuple[Type[Exception], ...] = (Exception,),
     ):
-        self._exception_kinds = exceptions_kinds
+        self._exception_types = exceptions_types
 
         restore_rate_hz = error_threshold / time_window_secs
 
@@ -69,7 +69,7 @@ class CircuitBreaker:
         # Check whether the raised exception is part of the configured
         # exceptions that the user wants to count. If so, record an extra
         # failure.
-        for kind in self._exception_kinds:
+        for kind in self._exception_types:
             if issubclass(exc_type, kind):
                 self.record_failure()
 
