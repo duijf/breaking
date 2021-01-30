@@ -1,4 +1,5 @@
-from typing import Any, Tuple, Type
+from types import TracebackType
+from typing import Any, Optional, Tuple, Type
 
 from breaking.bucket import TokenBucket
 
@@ -33,6 +34,9 @@ class CircuitBreaker:
     If `exceptions_kinds` is passed, the CircuitBreaker will only
     count exceptions of the given types. All these exceptions are
     re-raised.
+
+    This class is a ContextManager, so you can use it in a `with`
+    statement.
     """
 
     def __init__(
@@ -52,31 +56,44 @@ class CircuitBreaker:
             restore_rate_hz=restore_rate_hz,
         )
 
-    def request(self, method: str, url: str) -> Response:
-        """
-        Make a HTTP request to `url` using `method`.
-        """
+    def __enter__(self) -> None:
         print("Asked to perform request.")
-
         if self.is_blocking_requests():
             raise RequestBlockedError(
                 "Not performing request. Too many failures"
             )
 
-        print("Performing request")
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> bool:
+        """Exit the context manager.
 
-        try:
+        If this method returns `True`, the runtime will ignore any raised
+        exceptions in the body of the contextmanager.
+        """
+        if exc_type is None:
+            return False
+
+        # Check whether the raised exception is part of the configured
+        # exceptions that the user wants to count. If so, record an extra
+        # failure.
+        for kind in self._exception_kinds:
+            if issubclass(exc_type, kind):
+                self.record_failure()
+
+        return False
+
+    def request(self, method: str, url: str) -> Response:
+        """
+        Make a HTTP request to `url` using `method`.
+        """
+        with self:
+            print("Performing request")
             response = self._http_client.request(method, url)
             return response
-
-        # In a production implementation, catching all kinds of exceptions
-        # is bad form, so we make this configurable in the constructor.
-        # Exceptions that aren't in `self._exception_kinds` bubble up
-        # the stack immediately without being counted.
-        except self._exception_kinds:
-            # Record that the call failed and reraise the exception.
-            self.record_failure()
-            raise
 
     def is_allowing_requests(self) -> bool:
         """
