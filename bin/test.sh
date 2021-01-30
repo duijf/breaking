@@ -7,5 +7,5 @@ set -eufo pipefail
 (
     # Subshell, so we can cd without annoyances.
     cd $REPO_ROOT
-    python -m tests
+    python -m tests $@
 )
