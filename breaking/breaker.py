@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Tuple, Type
 
 from breaking.bucket import TokenBucket
 
@@ -29,6 +29,10 @@ class CircuitBreaker:
     we disallow any further requests until enough time has passed.
 
     See `TokenBucket` for further details on how requests are replenished.
+
+    If `exceptions_kinds` is passed, the CircuitBreaker will only
+    count exceptions of the given types. All these exceptions are
+    re-raised.
     """
 
     def __init__(
@@ -36,8 +40,10 @@ class CircuitBreaker:
         http_client: HttpClient,
         error_threshold: int,
         time_window_secs: int,
+        exceptions_kinds: Tuple[Type[Exception], ...] = (Exception,),
     ):
         self._http_client = http_client
+        self._exception_kinds = exceptions_kinds
 
         restore_rate_hz = error_threshold / time_window_secs
 
@@ -64,8 +70,10 @@ class CircuitBreaker:
             return response
 
         # In a production implementation, catching all kinds of exceptions
-        # is bad form. This should probably be configurable.
-        except Exception:
+        # is bad form, so we make this configurable in the constructor.
+        # Exceptions that aren't in `self._exception_kinds` bubble up
+        # the stack immediately without being counted.
+        except self._exception_kinds:
             # Record that the call failed and reraise the exception.
             self.record_failure()
             raise
