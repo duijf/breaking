@@ -1,29 +1,41 @@
 # Breaking
 
-A toy circuit breaker implementation in Python. Please consult
-`./breaking.py` for details.
+A circuit breaker implementation in Python.
 
-## Setup
+## Development
+
+The development setup assumes you have the [`nix`](https://nixos.org/)
+build system / package manager installed. Everything else is managed
+by Nix.
 
 ```
-# Set up a virtualenv and install requests.
-$ virtualenv venv
-$ source venv/bin/activate
-$ pip install -r requirements.txt
+$ git clone git@github.com:duijf/breaking.git
+$ cd breaking
 
-# Now run the demo program.
-$ ./breaking.py
+# Set up a development shell with Nix. This get's you the right
+# version of python, plus any development and test dependencies.
+# These versions will not interfere with your globally installed
+# tools. See `shell.nix` for what's included.
+$ ./bin/dev-shell.sh
+
+# Run the test-suite.
+$ ./bin/test.sh
+
+# Run the pre-commit checks.
+$ ./bin/pre-commit.py
+
+# Install the pre-commit checks as a git hook. After you run this
+# command, you will only be able to create git commits in the breaking
+# repo from a dev shell.
+$ ./bin/pre-commit.py --install
 ```
 
-## Future work
+## Why?
 
-Things that would be nice to include:
+I wrote this code for educational + self-promotion reasons:
 
- - A test suite instead of the little exectuable proof of concept.
- - Typesafe support for other HTTP clients with mypy protocols.
-
-## Context
-
-In case you're following me on GitHub and are wondering what's
-happening: I'm writing this as part of the interview process for a
-company I'm interviewing at.
+ - I wanted to show off my preferred way of writing Python, including
+   best practices I follow. (The first version of this code was written
+   for an assessment I did as part of an interview process).
+ - This should also serve as an example of using the Nix package
+   manager for Python development.
