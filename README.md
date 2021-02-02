@@ -2,6 +2,8 @@
 
 A circuit breaker implementation in Python.
 
+ - [**Docs**](https://breaking.duijf.io/breaking)
+
 ## Development
 
 The development setup assumes you have the [`nix`](https://nixos.org/)
