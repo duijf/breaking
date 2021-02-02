@@ -33,9 +33,10 @@ class Mode(enum.Enum):
     CHECK = "--check"
     INSTALL = "--install"
 
-    def from_cli(cli_args: List[str]) -> Mode:
+    @classmethod
+    def from_cli(cls, cli_args: List[str]) -> Mode:
         arg_mode = cli_args[0] if len(cli_args) >= 1 else "--fix"
-        return Mode(arg_mode)
+        return cls(arg_mode)
 
 
 def run_lint(command: List[str]) -> None:
