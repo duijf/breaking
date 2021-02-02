@@ -1,3 +1,4 @@
+import contextlib
 import socket
 from multiprocessing import Process
 from typing import Iterator, Tuple
@@ -6,7 +7,7 @@ import flask
 import pytest
 import requests
 
-from breaking import CircuitBreaker
+from breaking import CircuitBreaker, MockClock, RequestBlockedError
 
 
 @pytest.fixture
@@ -27,10 +28,16 @@ def open_port() -> int:
 
 
 @pytest.fixture
-def breaker() -> CircuitBreaker:
+def clock() -> MockClock:
+    return MockClock()
+
+
+@pytest.fixture
+def breaker(clock: MockClock) -> CircuitBreaker:
     return CircuitBreaker(
         error_threshold=5,
         time_window_secs=1,
+        clock=clock,
     )
 
 
@@ -70,3 +77,25 @@ def test_exception_propagation(
     with pytest.raises(requests.exceptions.ConnectionError):
         with breaker:
             requests.get(not_a_server_url)
+
+
+def test_circuit_breaking(
+    breaker: CircuitBreaker,
+    server_url: str,
+    clock: MockClock,
+) -> None:
+    for _ in range(breaker._bucket.capacity_max):
+        with contextlib.suppress(ValueError):
+            with breaker:
+                raise ValueError
+
+    with pytest.raises(RequestBlockedError):
+        with breaker:
+            requests.get(server_url)
+
+    clock.advance_by(1)
+
+    # The request should be allowed again by the circuit breaker, so we
+    # shouldn't encounter any exceptions.
+    with breaker:
+        requests.get(server_url)

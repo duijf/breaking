@@ -2,6 +2,7 @@ from types import TracebackType
 from typing import Optional, Tuple, Type
 
 from breaking.bucket import TokenBucket
+from breaking.clock import Clock, MonotonicClock
 
 
 class RequestBlockedError(Exception):
@@ -34,14 +35,19 @@ class CircuitBreaker:
         error_threshold: int,
         time_window_secs: int,
         exceptions_types: Tuple[Type[Exception], ...] = (Exception,),
+        clock: Optional[Clock] = None,
     ):
         self._exception_types = exceptions_types
 
         restore_rate_hz = error_threshold / time_window_secs
 
+        if clock is None:
+            clock = MonotonicClock()
+
         self._bucket = TokenBucket(
             capacity_max=error_threshold,
             restore_rate_hz=restore_rate_hz,
+            clock=clock,
         )
 
     def __enter__(self) -> None:
