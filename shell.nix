@@ -7,6 +7,7 @@ let
     ps.hypothesis
     ps.isort
     ps.mypy
+    ps.pdoc
     ps.pytest
     ps.requests
   ]);
