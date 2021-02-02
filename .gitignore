@@ -6,6 +6,3 @@ __pycache__
 
 # Hypothesis test results
 .hypothesis
-
-# Generated docs
-docs/
