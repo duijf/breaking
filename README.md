@@ -6,9 +6,13 @@ A circuit breaker implementation in Python.
 
 ## Development
 
-The development setup assumes you have the [`nix`](https://nixos.org/)
-build system / package manager installed. Everything else is managed
-by Nix.
+The most convenient way to set up a development environment is to use
+[the Nix package manager](https://nixos.org/). After installing Nix,
+you can use the `./bin/dev-shell.sh` script to get a shell which
+
+The Nix environment is a convenience, not a requirement. You are free
+to configure your development environment how you see fit. Refer to
+`shell.nix` for a list of dependencies.
 
 ```
 $ git clone git@github.com:duijf/breaking.git
