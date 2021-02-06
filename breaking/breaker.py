@@ -5,7 +5,7 @@ from breaking.bucket import TokenBucket
 from breaking.clock import Clock, MonotonicClock
 
 
-class RequestBlockedError(Exception):
+class TooManyErrors(Exception):
     """
     Raised by `CircuitBreaker` when too many errors have occurred.
     """
@@ -50,10 +50,8 @@ class CircuitBreaker:
 
     def __enter__(self) -> None:
         print("Asked to perform request.")
-        if self.is_blocking_requests():
-            raise RequestBlockedError(
-                "Not performing request. Too many failures"
-            )
+        if self.is_blocking_execution():
+            raise TooManyErrors("Not performing request. Too many failures")
 
     def __exit__(
         self,
@@ -77,17 +75,17 @@ class CircuitBreaker:
             if issubclass(exc_type, kind):
                 self.record_failure()
 
-    def is_allowing_requests(self) -> bool:
+    def is_allowing_execution(self) -> bool:
         """
-        Check if the circuit breaker is allowing requests.
+        Check if the circuit breaker is allowing execution.
         """
         return self._bucket.has_tokens_left()
 
-    def is_blocking_requests(self) -> bool:
+    def is_blocking_execution(self) -> bool:
         """
-        Check if the circuit breaker is blocking requests.
+        Check if the circuit breaker is blocking execution.
         """
-        return not self.is_allowing_requests()
+        return not self.is_allowing_execution()
 
     def record_failure(self) -> None:
         """

@@ -7,7 +7,7 @@ import flask
 import pytest
 import requests
 
-from breaking import CircuitBreaker, MockClock, RequestBlockedError
+from breaking import CircuitBreaker, MockClock, TooManyErrors
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def test_circuit_breaking(
             with breaker:
                 raise ValueError
 
-    with pytest.raises(RequestBlockedError):
+    with pytest.raises(TooManyErrors):
         with breaker:
             requests.get(server_url)
 
