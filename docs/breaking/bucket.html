@@ -161,32 +161,40 @@
 
 <span class="sd">    Each bucket starts out full of tokens.</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |---| &lt;- capacty_current, capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    When events happen, the current capcaity is decremented:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |---| &lt;- capacity_current</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    When the bucket runs out of tokens, no new events are allowed:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___| &lt;- capacity_current</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    Over time, the capacity is restored at `restore_rate_hz`, and</span>
 <span class="sd">    new events are allowed again:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |---| &lt;- capacity_current</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    By keeping track of the `last_restore` time, we can perform this</span>
 <span class="sd">    restoration calcuation every time we try to take from the bucket.</span>
@@ -407,32 +415,40 @@
 
 <span class="sd">    Each bucket starts out full of tokens.</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |---| &lt;- capacty_current, capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    When events happen, the current capcaity is decremented:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |---| &lt;- capacity_current</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    When the bucket runs out of tokens, no new events are allowed:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___| &lt;- capacity_current</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    Over time, the capacity is restored at `restore_rate_hz`, and</span>
 <span class="sd">    new events are allowed again:</span>
 
+<span class="sd">    ```</span>
 <span class="sd">    |   | &lt;- capacity_max</span>
 <span class="sd">    |---| &lt;- capacity_current</span>
 <span class="sd">    |   |</span>
 <span class="sd">    |___|</span>
+<span class="sd">    ```</span>
 
 <span class="sd">    By keeping track of the `last_restore` time, we can perform this</span>
 <span class="sd">    restoration calcuation every time we try to take from the bucket.</span>
@@ -641,32 +657,36 @@ problems with the implementations above.</p>
 
 <p>Each bucket starts out full of tokens.</p>
 
-<p>|---| &lt;- capacty_current, capacity_max
+<pre><code>|---| &lt;- capacty_current, capacity_max
 |   |
 |   |
-|___|</p>
+|___|
+</code></pre>
 
 <p>When events happen, the current capcaity is decremented:</p>
 
-<p>|   | &lt;- capacity_max
+<pre><code>|   | &lt;- capacity_max
 |   |
 |---| &lt;- capacity_current
-|___|</p>
+|___|
+</code></pre>
 
 <p>When the bucket runs out of tokens, no new events are allowed:</p>
 
-<p>|   | &lt;- capacity_max
+<pre><code>|   | &lt;- capacity_max
 |   |
 |   |
-|___| &lt;- capacity_current</p>
+|___| &lt;- capacity_current
+</code></pre>
 
 <p>Over time, the capacity is restored at <code>restore_rate_hz</code>, and
 new events are allowed again:</p>
 
-<p>|   | &lt;- capacity_max
+<pre><code>|   | &lt;- capacity_max
 |---| &lt;- capacity_current
 |   |
-|___|</p>
+|___|
+</code></pre>
 
 <p>By keeping track of the <code>last_restore</code> time, we can perform this
 restoration calcuation every time we try to take from the bucket.</p>

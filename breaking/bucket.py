@@ -93,32 +93,40 @@ class TokenBucket:
 
     Each bucket starts out full of tokens.
 
+    ```
     |---| <- capacty_current, capacity_max
     |   |
     |   |
     |___|
+    ```
 
     When events happen, the current capcaity is decremented:
 
+    ```
     |   | <- capacity_max
     |   |
     |---| <- capacity_current
     |___|
+    ```
 
     When the bucket runs out of tokens, no new events are allowed:
 
+    ```
     |   | <- capacity_max
     |   |
     |   |
     |___| <- capacity_current
+    ```
 
     Over time, the capacity is restored at `restore_rate_hz`, and
     new events are allowed again:
 
+    ```
     |   | <- capacity_max
     |---| <- capacity_current
     |   |
     |___|
+    ```
 
     By keeping track of the `last_restore` time, we can perform this
     restoration calcuation every time we try to take from the bucket.
