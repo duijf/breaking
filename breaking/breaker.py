@@ -7,27 +7,25 @@ from breaking.clock import Clock, MonotonicClock
 
 class RequestBlockedError(Exception):
     """
-    Exception raised by `CircuitBreaker` when asked to preform a
-    request while blocking requests.
+    Raised by `CircuitBreaker` when too many errors have occurred.
     """
 
 
 class CircuitBreaker:
     """
-    A toy circuit breaker in Python for HTTP requests.
+    Stop executing code after too many exceptions have been occurred.
 
-    Allows a maximum number of `error_threshold` errors over a time
-    window of `time_window_secs`. After this threshold has been exceeded,
-    we disallow any further requests until enough time has passed.
+    Allows a maximum number of `error_threshold` errors over a time window of
+    `time_window_secs`. After this threshold has been exceeded, we disallow any
+    further requests until enough time has passed.
 
-    See `TokenBucket` for further details on how requests are replenished.
+    See `breaking.bucket.TokenBucket` for further details on how requests are
+    replenished.
 
-    If `exceptions_types` is passed, the CircuitBreaker will only
-    count exceptions of the given types. All these exceptions are
-    re-raised.
+    If `exceptions_types` is passed, the CircuitBreaker will only count
+    exceptions of the given types. All these exceptions are re-raised.
 
-    This class is a ContextManager, so you can use it in a `with`
-    statement.
+    This class is a ContextManager, so you can use it in a `with` statement.
     """
 
     def __init__(
