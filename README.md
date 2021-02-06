@@ -36,6 +36,15 @@ $ ./bin/pre-commit.py
 $ ./bin/pre-commit.py --install
 ```
 
+## Future work
+
+ - Model based testing with Hypothesis.
+ - Thread safety + concurrency tests with hypothesis.
+ - Share tokenbuckets using a datastore.
+ - Decorators.
+ - Implement rate limiting.
+ - Polish and release.
+
 ## Why?
 
 I wrote this code for educational + self-promotion reasons:
