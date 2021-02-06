@@ -23,7 +23,7 @@
                     <h2>API Documentation</h2>
                             <ul class="memberlist">
                 <li>
-                        <a class="class" href="#RequestBlockedError">RequestBlockedError</a>
+                        <a class="class" href="#TooManyErrors">TooManyErrors</a>
                                     <ul class="memberlist">
                     </ul>
 
@@ -35,10 +35,10 @@
                                     <a class="function" href="#CircuitBreaker.__init__">CircuitBreaker</a>
                             </li>
                             <li>
-                                    <a class="function" href="#CircuitBreaker.is_allowing_requests">is_allowing_requests</a>
+                                    <a class="function" href="#CircuitBreaker.is_allowing_execution">is_allowing_execution</a>
                             </li>
                             <li>
-                                    <a class="function" href="#CircuitBreaker.is_blocking_requests">is_blocking_requests</a>
+                                    <a class="function" href="#CircuitBreaker.is_blocking_execution">is_blocking_execution</a>
                             </li>
                             <li>
                                     <a class="function" href="#CircuitBreaker.record_failure">record_failure</a>
@@ -67,29 +67,27 @@
 <span class="kn">from</span> <span class="nn">breaking.clock</span> <span class="kn">import</span> <span class="n">Clock</span><span class="p">,</span> <span class="n">MonotonicClock</span>
 
 
-<span class="k">class</span> <span class="nc">RequestBlockedError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">TooManyErrors</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Exception raised by `CircuitBreaker` when asked to preform a</span>
-<span class="sd">    request while blocking requests.</span>
+<span class="sd">    Raised by `CircuitBreaker` when too many errors have occurred.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 
 <span class="k">class</span> <span class="nc">CircuitBreaker</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A toy circuit breaker in Python for HTTP requests.</span>
+<span class="sd">    Stop executing code after too many exceptions have been occurred.</span>
 
-<span class="sd">    Allows a maximum number of `error_threshold` errors over a time</span>
-<span class="sd">    window of `time_window_secs`. After this threshold has been exceeded,</span>
-<span class="sd">    we disallow any further requests until enough time has passed.</span>
+<span class="sd">    Allows a maximum number of `error_threshold` errors over a time window of</span>
+<span class="sd">    `time_window_secs`. After this threshold has been exceeded, we disallow any</span>
+<span class="sd">    further requests until enough time has passed.</span>
 
-<span class="sd">    See `TokenBucket` for further details on how requests are replenished.</span>
+<span class="sd">    See `breaking.bucket.TokenBucket` for further details on how requests are</span>
+<span class="sd">    replenished.</span>
 
-<span class="sd">    If `exceptions_types` is passed, the CircuitBreaker will only</span>
-<span class="sd">    count exceptions of the given types. All these exceptions are</span>
-<span class="sd">    re-raised.</span>
+<span class="sd">    If `exceptions_types` is passed, the CircuitBreaker will only count</span>
+<span class="sd">    exceptions of the given types. All these exceptions are re-raised.</span>
 
-<span class="sd">    This class is a ContextManager, so you can use it in a `with`</span>
-<span class="sd">    statement.</span>
+<span class="sd">    This class is a ContextManager, so you can use it in a `with` statement.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -114,10 +112,8 @@
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Asked to perform request.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_blocking_requests</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">RequestBlockedError</span><span class="p">(</span>
-                <span class="s2">&quot;Not performing request. Too many failures&quot;</span>
-            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_blocking_execution</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">TooManyErrors</span><span class="p">(</span><span class="s2">&quot;Not performing request. Too many failures&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -141,17 +137,17 @@
             <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">exc_type</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">record_failure</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">is_allowing_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">is_allowing_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is allowing requests.</span>
+<span class="sd">        Check if the circuit breaker is allowing execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span><span class="o">.</span><span class="n">has_tokens_left</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">is_blocking_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">is_blocking_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is blocking requests.</span>
+<span class="sd">        Check if the circuit breaker is blocking execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_requests</span><span class="p">()</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_execution</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">record_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -169,26 +165,24 @@
             </details>
 
             </section>
-                <section id="RequestBlockedError">
+                <section id="TooManyErrors">
                                         <div class="attr class">
             
             <span class="def">class</span>
-            <span class="name">RequestBlockedError</span>(<span class="base">builtins.Exception</span>):
+            <span class="name">TooManyErrors</span>(<span class="base">builtins.Exception</span>):
         </div>
 
                         <details>
                 <summary class="button">View Source</summary>
-                <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">RequestBlockedError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+                <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">TooManyErrors</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Exception raised by `CircuitBreaker` when asked to preform a</span>
-<span class="sd">    request while blocking requests.</span>
+<span class="sd">    Raised by `CircuitBreaker` when too many errors have occurred.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 </pre></div>
 
             </details>
 
-                    <div class="docstring"><p>Exception raised by <code><a href="#CircuitBreaker">CircuitBreaker</a></code> when asked to preform a
-request while blocking requests.</p>
+                    <div class="docstring"><p>Raised by <code><a href="#CircuitBreaker">CircuitBreaker</a></code> when too many errors have occurred.</p>
 </div>
 
 
@@ -218,20 +212,19 @@ request while blocking requests.</p>
                 <summary class="button">View Source</summary>
                 <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">CircuitBreaker</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A toy circuit breaker in Python for HTTP requests.</span>
+<span class="sd">    Stop executing code after too many exceptions have been occurred.</span>
 
-<span class="sd">    Allows a maximum number of `error_threshold` errors over a time</span>
-<span class="sd">    window of `time_window_secs`. After this threshold has been exceeded,</span>
-<span class="sd">    we disallow any further requests until enough time has passed.</span>
+<span class="sd">    Allows a maximum number of `error_threshold` errors over a time window of</span>
+<span class="sd">    `time_window_secs`. After this threshold has been exceeded, we disallow any</span>
+<span class="sd">    further requests until enough time has passed.</span>
 
-<span class="sd">    See `TokenBucket` for further details on how requests are replenished.</span>
+<span class="sd">    See `breaking.bucket.TokenBucket` for further details on how requests are</span>
+<span class="sd">    replenished.</span>
 
-<span class="sd">    If `exceptions_types` is passed, the CircuitBreaker will only</span>
-<span class="sd">    count exceptions of the given types. All these exceptions are</span>
-<span class="sd">    re-raised.</span>
+<span class="sd">    If `exceptions_types` is passed, the CircuitBreaker will only count</span>
+<span class="sd">    exceptions of the given types. All these exceptions are re-raised.</span>
 
-<span class="sd">    This class is a ContextManager, so you can use it in a `with`</span>
-<span class="sd">    statement.</span>
+<span class="sd">    This class is a ContextManager, so you can use it in a `with` statement.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -256,10 +249,8 @@ request while blocking requests.</p>
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Asked to perform request.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_blocking_requests</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">RequestBlockedError</span><span class="p">(</span>
-                <span class="s2">&quot;Not performing request. Too many failures&quot;</span>
-            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_blocking_execution</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">TooManyErrors</span><span class="p">(</span><span class="s2">&quot;Not performing request. Too many failures&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -283,17 +274,17 @@ request while blocking requests.</p>
             <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">exc_type</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">record_failure</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">is_allowing_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">is_allowing_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is allowing requests.</span>
+<span class="sd">        Check if the circuit breaker is allowing execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span><span class="o">.</span><span class="n">has_tokens_left</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">is_blocking_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">is_blocking_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is blocking requests.</span>
+<span class="sd">        Check if the circuit breaker is blocking execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_requests</span><span class="p">()</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_execution</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">record_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -310,20 +301,19 @@ request while blocking requests.</p>
 
             </details>
 
-                    <div class="docstring"><p>A toy circuit breaker in Python for HTTP requests.</p>
+                    <div class="docstring"><p>Stop executing code after too many exceptions have been occurred.</p>
 
-<p>Allows a maximum number of <code>error_threshold</code> errors over a time
-window of <code>time_window_secs</code>. After this threshold has been exceeded,
-we disallow any further requests until enough time has passed.</p>
+<p>Allows a maximum number of <code>error_threshold</code> errors over a time window of
+<code>time_window_secs</code>. After this threshold has been exceeded, we disallow any
+further requests until enough time has passed.</p>
 
-<p>See <code>TokenBucket</code> for further details on how requests are replenished.</p>
+<p>See <code><a href="bucket.html#TokenBucket">breaking.bucket.TokenBucket</a></code> for further details on how requests are
+replenished.</p>
 
-<p>If <code>exceptions_types</code> is passed, the CircuitBreaker will only
-count exceptions of the given types. All these exceptions are
-re-raised.</p>
+<p>If <code>exceptions_types</code> is passed, the CircuitBreaker will only count
+exceptions of the given types. All these exceptions are re-raised.</p>
 
-<p>This class is a ContextManager, so you can use it in a <code>with</code>
-statement.</p>
+<p>This class is a ContextManager, so you can use it in a <code>with</code> statement.</p>
 </div>
 
 
@@ -366,48 +356,48 @@ statement.</p>
         
 
                             </div>
-                            <div id="CircuitBreaker.is_allowing_requests" class="classattr">
+                            <div id="CircuitBreaker.is_allowing_execution" class="classattr">
                                             <div class="attr function">
             
                 <span class="def">def</span>
-                <span class="name">is_allowing_requests</span><span class="signature">(self) -&gt; bool</span>:
+                <span class="name">is_allowing_execution</span><span class="signature">(self) -&gt; bool</span>:
         </div>
 
                         <details>
                 <summary class="button">View Source</summary>
-                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">is_allowing_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">is_allowing_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is allowing requests.</span>
+<span class="sd">        Check if the circuit breaker is allowing execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span><span class="o">.</span><span class="n">has_tokens_left</span><span class="p">()</span>
 </pre></div>
 
             </details>
 
-                    <div class="docstring"><p>Check if the circuit breaker is allowing requests.</p>
+                    <div class="docstring"><p>Check if the circuit breaker is allowing execution.</p>
 </div>
 
 
                             </div>
-                            <div id="CircuitBreaker.is_blocking_requests" class="classattr">
+                            <div id="CircuitBreaker.is_blocking_execution" class="classattr">
                                             <div class="attr function">
             
                 <span class="def">def</span>
-                <span class="name">is_blocking_requests</span><span class="signature">(self) -&gt; bool</span>:
+                <span class="name">is_blocking_execution</span><span class="signature">(self) -&gt; bool</span>:
         </div>
 
                         <details>
                 <summary class="button">View Source</summary>
-                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">is_blocking_requests</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">is_blocking_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the circuit breaker is blocking requests.</span>
+<span class="sd">        Check if the circuit breaker is blocking execution.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_requests</span><span class="p">()</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowing_execution</span><span class="p">()</span>
 </pre></div>
 
             </details>
 
-                    <div class="docstring"><p>Check if the circuit breaker is blocking requests.</p>
+                    <div class="docstring"><p>Check if the circuit breaker is blocking execution.</p>
 </div>
 
 

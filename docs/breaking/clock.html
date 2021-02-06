@@ -18,6 +18,11 @@
             <div>
                         <a class="button module-list-button" href="../breaking.html">breaking</a>
 
+                    <h2>Contents</h2>
+                    <ul>
+  <li><a href="#why">Why?</a></li>
+</ul>
+
 
 
                     <h2>API Documentation</h2>
@@ -72,16 +77,56 @@
             <section>
                 <h1 class="modulename">
 <a href="./../breaking.html">breaking</a>.clock                </h1>
-                
+                            <div class="docstring"><p>A clock interface and implementations.</p>
+
+<h2 id="why">Why?</h2>
+
+<p>It's tricky to test software that relies on clocks without controlling the
+passage of time yourself. Race conditions can be hard to reliably trigger
+or write regression tests for. And even in the simplest cases, there is the
+question of performance: you don't want to make your test suite take a minute
+just because you want to <code>time.sleep(60)</code> somewhere.</p>
+
+<p>This clock interface makes it easy for us to test the logic of
+<code><a href="bucket.html#TokenBucket">breaking.bucket.TokenBucket</a></code> and <code><a href="breaker.html#CircuitBreaker">breaking.breaker.CircuitBreaker</a></code>. Both
+classes accept a <code>clock</code> parameter which implements the <code><a href="#Clock">Clock</a></code> protocol.
+Depending on the implementation we pass, we can choose whether we're checking
+actual system clock, or just a test version. This pattern is called "dependency
+injection".</p>
+</div>
+
                             <details>
                 <summary class="button">View Source</summary>
-                <div class="codehilite"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+                <div class="codehilite"><pre><span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">A clock interface and implementations.</span>
+
+<span class="sd">## Why?</span>
+
+<span class="sd">It&#39;s tricky to test software that relies on clocks without controlling the</span>
+<span class="sd">passage of time yourself. Race conditions can be hard to reliably trigger</span>
+<span class="sd">or write regression tests for. And even in the simplest cases, there is the</span>
+<span class="sd">question of performance: you don&#39;t want to make your test suite take a minute</span>
+<span class="sd">just because you want to `time.sleep(60)` somewhere.</span>
+
+<span class="sd">This clock interface makes it easy for us to test the logic of</span>
+<span class="sd">`breaking.bucket.TokenBucket` and `breaking.breaker.CircuitBreaker`. Both</span>
+<span class="sd">classes accept a `clock` parameter which implements the `Clock` protocol.</span>
+<span class="sd">Depending on the implementation we pass, we can choose whether we&#39;re checking</span>
+<span class="sd">actual system clock, or just a test version. This pattern is called &quot;dependency</span>
+<span class="sd">injection&quot;.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">time</span>
 
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Protocol</span>
 
 
 <span class="k">class</span> <span class="nc">Clock</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Interface that all clocks must conform to.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Interface that all clocks must conform to.</span>
+
+<span class="sd">    You will get a `TypeError` if you try to instantiate this class. This is</span>
+<span class="sd">    a `typing_extensions.Protocol`, which you can think of as an abstract base</span>
+<span class="sd">    class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Return the amount of seconds since clock epoch.&quot;&quot;&quot;</span>
@@ -91,6 +136,7 @@
     <span class="sd">&quot;&quot;&quot;Clock based on `time.monotonic()`&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns `time.monotonic()`&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
 
 
@@ -101,6 +147,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mf">0.0</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the stored time value.</span>
+
+<span class="sd">        This value does not increase by itself. You have to manually call</span>
+<span class="sd">        `MockClock.advance_by()` in order to move this clock forward in time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
 
     <span class="k">def</span> <span class="nf">advance_by</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -122,7 +173,12 @@
                         <details>
                 <summary class="button">View Source</summary>
                 <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Clock</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Interface that all clocks must conform to.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Interface that all clocks must conform to.</span>
+
+<span class="sd">    You will get a `TypeError` if you try to instantiate this class. This is</span>
+<span class="sd">    a `typing_extensions.Protocol`, which you can think of as an abstract base</span>
+<span class="sd">    class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Return the amount of seconds since clock epoch.&quot;&quot;&quot;</span>
@@ -131,6 +187,10 @@
             </details>
 
                     <div class="docstring"><p>Interface that all clocks must conform to.</p>
+
+<p>You will get a <code>TypeError</code> if you try to instantiate this class. This is
+a <code>typing_extensions.Protocol</code>, which you can think of as an abstract base
+class.</p>
 </div>
 
 
@@ -185,6 +245,7 @@
     <span class="sd">&quot;&quot;&quot;Clock based on `time.monotonic()`&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns `time.monotonic()`&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
 </pre></div>
 
@@ -213,12 +274,15 @@
                         <details>
                 <summary class="button">View Source</summary>
                 <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns `time.monotonic()`&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
 </pre></div>
 
             </details>
 
-        
+                    <div class="docstring"><p>Returns <code>time.monotonic()</code></p>
+</div>
+
 
                             </div>
                 </section>
@@ -238,6 +302,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mf">0.0</span>
 
     <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the stored time value.</span>
+
+<span class="sd">        This value does not increase by itself. You have to manually call</span>
+<span class="sd">        `MockClock.advance_by()` in order to move this clock forward in time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
 
     <span class="k">def</span> <span class="nf">advance_by</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -278,12 +347,22 @@
                         <details>
                 <summary class="button">View Source</summary>
                 <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">seconds_since_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the stored time value.</span>
+
+<span class="sd">        This value does not increase by itself. You have to manually call</span>
+<span class="sd">        `MockClock.advance_by()` in order to move this clock forward in time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
 </pre></div>
 
             </details>
 
-        
+                    <div class="docstring"><p>Return the stored time value.</p>
+
+<p>This value does not increase by itself. You have to manually call
+<code><a href="#MockClock.advance_by">MockClock.advance_by</a>()</code> in order to move this clock forward in time.</p>
+</div>
+
 
                             </div>
                             <div id="MockClock.advance_by" class="classattr">

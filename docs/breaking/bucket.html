@@ -77,36 +77,173 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Impose an upper bound on a number of events over a time interval.</span>
 
-<span class="sd">    USE CASES</span>
+<span class="sd">    Use cases:</span>
 
 <span class="sd">     - Rate limiting the number of requests for clients.</span>
 <span class="sd">     - Circuit breaking after a certain number of exceptions have happened.</span>
 
-<span class="sd">    BEHAVIOR</span>
+<span class="sd">    ### How this works</span>
 
-<span class="sd">     - At most `capacity_max` events can happen at once.</span>
-<span class="sd">     - When events happen, `capacity_current` is decremented.</span>
-<span class="sd">     - When `capacity_current` is `0`, there is no more capacity for extra</span>
-<span class="sd">       events.</span>
-<span class="sd">     - Capacity is restored at a rate of `restore_rate_hz`. The bucket</span>
-<span class="sd">       keeps track of when this last happens and restores as appropriate.</span>
+<span class="sd">    I will slowly build up to how token buckets work and why they are</span>
+<span class="sd">    nice by showing other ways you could implement this (and</span>
+<span class="sd">    limitations of those approaches).</span>
 
-<span class="sd">    N.B. You might also have heard of a &quot;leaky bucket&quot;. Here&#39;s a brief</span>
-<span class="sd">    comparison between a leaky and a token bucket:</span>
+<span class="sd">    There are many related datastructures / algorithms in this space</span>
+<span class="sd">    eith different trade-offs. What follows is a brief comparison</span>
+<span class="sd">    between them.</span>
 
-<span class="sd">     - Leaky buckets take a bursty stream of events and output them at a</span>
+<span class="sd">    #### Fixed window counters</span>
+
+<span class="sd">    Divide time in a series of buckets, and for each bucket keep track</span>
+<span class="sd">    of the number of events that have happened.</span>
+
+<span class="sd">    Example implementation using a `Dict[Time, Count]`:</span>
+
+<span class="sd">    ```</span>
+<span class="sd">    # An event happens at time `1612604808`</span>
+<span class="sd">    { 1612604808: 1 }</span>
+
+<span class="sd">    # Another event happens within the same second.</span>
+<span class="sd">    { 1612604808: 2 }</span>
+
+<span class="sd">    # Time moves forward into the next second.</span>
+
+<span class="sd">    # A new event happens. Remove the counter for the previous</span>
+<span class="sd">    # second and start anew.</span>
+<span class="sd">    { 1612604808: 2, 1612604809: 1 }</span>
+<span class="sd">      ^              ^ Limit checks now use this counter.</span>
+<span class="sd">      Previous key. Will be deleted.</span>
+<span class="sd">    ```</span>
+
+<span class="sd">    Based on these counters, you can implement your rate limiting logic.</span>
+<span class="sd">    Conceptually, this is very simple. However, there is a major limitation.</span>
+
+<span class="sd">    **You can only consider event rates for the current</span>
+<span class="sd">    bucket**. (Otherwise you would need to loop over the entire dict,</span>
+<span class="sd">    which is inefficient). This introduces inaccuracies in counting</span>
+<span class="sd">    when events happen when your buckets roll over.</span>
+
+<span class="sd">    Consider:</span>
+
+<span class="sd">    ```</span>
+<span class="sd">    # We&#39;d like to limit the number of requests to 10/second.</span>
+
+<span class="sd">    # At `1612604808.95` (near the end of second `1612604808`), 10</span>
+<span class="sd">    # requests come in.</span>
+<span class="sd">    { 1612604808: 10 }</span>
+
+<span class="sd">    # At `1612604809.05` (the beginning of second `1612604809`), 11</span>
+<span class="sd">    # more requests come in.</span>
+<span class="sd">    { 1612604808: 10, 1612604809: 10 }</span>
+<span class="sd">      ^               ^ Used for comparison</span>
+<span class="sd">      Not used anymore</span>
+<span class="sd">    ```</span>
+
+<span class="sd">    You conceptually had a rate limit of 10 requests / second. However</span>
+<span class="sd">    at the second boundaries, you can actually allow up to 20 requests.</span>
+
+<span class="sd">    #### Sliding window counter</span>
+
+<span class="sd">    This is an approach to fix the inaccuracies above.</span>
+
+<span class="sd">     - Store all event times in a sorted set, with millisecond accuracy.</span>
+<span class="sd">     - When new events come in, add their time values to the new set.</span>
+<span class="sd">     - Clean up all old requests from the set every second (this is fast</span>
+<span class="sd">       because the set is sorted).</span>
+
+<span class="sd">    This is more accurate, but trades accuracy for memory. Depending</span>
+<span class="sd">    on the limits that you set, this could be a dealbreaker.</span>
+
+<span class="sd">    #### Token buckets</span>
+
+<span class="sd">    Token buckets are a way to fix the accuracy and the memory usage</span>
+<span class="sd">    problems with the implementations above.</span>
+
+<span class="sd">    Each bucket starts out full of tokens.</span>
+
+<span class="sd">    |---| &lt;- capacty_current, capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    When events happen, the current capcaity is decremented:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |---| &lt;- capacity_current</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    When the bucket runs out of tokens, no new events are allowed:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___| &lt;- capacity_current</span>
+
+<span class="sd">    Over time, the capacity is restored at `restore_rate_hz`, and</span>
+<span class="sd">    new events are allowed again:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |---| &lt;- capacity_current</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    By keeping track of the `last_restore` time, we can perform this</span>
+<span class="sd">    restoration calcuation every time we try to take from the bucket.</span>
+
+<span class="sd">    We get the full accuracy offered by the sorted set, but with less</span>
+<span class="sd">    memory requirements. Nice.</span>
+
+<span class="sd">    (This class also has a `fill()` operation, which is helpful when</span>
+<span class="sd">    implementing circuit breakers.)</span>
+
+<span class="sd">    #### Leaky Buckets</span>
+
+<span class="sd">    **Token buckets and leaky buckets have different goals and usecases.**</span>
+<span class="sd">    But since they appear very similar on the surface, I&#39;m mentioning them</span>
+<span class="sd">    for completeness.</span>
+
+<span class="sd">    Both leaky and token buckets contain a backpressure mechanism, but</span>
+<span class="sd">    they have different goals:</span>
+
+<span class="sd">     - Leaky buckets turn bursty streams of events into a stream of</span>
 <span class="sd">       constant rate.</span>
-<span class="sd">     - Token buckets take a (potentially bursty) stream of events and impose</span>
-<span class="sd">       a maximum on the amount of burstiness.</span>
+<span class="sd">     - Token buckets make sure no more than `X` events happen over a</span>
+<span class="sd">       certain time window. The resulting stream has an upper bound on</span>
+<span class="sd">       the number of elements, but is still allowed to be bursty.</span>
+
+<span class="sd">    Or more concretely:</span>
+
+<span class="sd">     - Leaky buckets buffer requests and output them at a steady rate. Limits</span>
+<span class="sd">       are imposed when the buffer is full.</span>
+<span class="sd">     - Token buckets allow reqeusts immediately. Limits are imposed when more</span>
+<span class="sd">       than X requests happen in a period of time.</span>
+
+<span class="sd">    Here is a table which compares the two:</span>
+
+<span class="sd">    | bucket type             | token                  | leaky              |</span>
+<span class="sd">    |-------------------------|------------------------|--------------------|</span>
+<span class="sd">    | goal                    | impose upper bound     | control burstiness |</span>
+<span class="sd">    | requests happen         | immediately            | at leak rate       |</span>
+<span class="sd">    | backpressure when       | empty                  | full               |</span>
+<span class="sd">    | analogous datastructure | replenishing semaphore | bounded queue      |</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">capacity_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>
     <span class="n">capacity_current</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="n">restore_rate_hz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;How much capacity should be restored every second?&quot;&quot;&quot;</span>
     <span class="n">last_restore</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Time the last capacity restore took place.&quot;&quot;&quot;</span>
 
     <span class="n">clock</span><span class="p">:</span> <span class="n">Clock</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MonotonicClock</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Clock implementation to use.</span>
+
+<span class="sd">    This is configurable because to facilitate testing the behavior of</span>
+<span class="sd">    this class without waiting for actual time to pass. See `breaking.clock`</span>
+<span class="sd">    for further details.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">last_restore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clock</span><span class="o">.</span><span class="n">seconds_since_epoch</span><span class="p">()</span>
@@ -186,36 +323,173 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Impose an upper bound on a number of events over a time interval.</span>
 
-<span class="sd">    USE CASES</span>
+<span class="sd">    Use cases:</span>
 
 <span class="sd">     - Rate limiting the number of requests for clients.</span>
 <span class="sd">     - Circuit breaking after a certain number of exceptions have happened.</span>
 
-<span class="sd">    BEHAVIOR</span>
+<span class="sd">    ### How this works</span>
 
-<span class="sd">     - At most `capacity_max` events can happen at once.</span>
-<span class="sd">     - When events happen, `capacity_current` is decremented.</span>
-<span class="sd">     - When `capacity_current` is `0`, there is no more capacity for extra</span>
-<span class="sd">       events.</span>
-<span class="sd">     - Capacity is restored at a rate of `restore_rate_hz`. The bucket</span>
-<span class="sd">       keeps track of when this last happens and restores as appropriate.</span>
+<span class="sd">    I will slowly build up to how token buckets work and why they are</span>
+<span class="sd">    nice by showing other ways you could implement this (and</span>
+<span class="sd">    limitations of those approaches).</span>
 
-<span class="sd">    N.B. You might also have heard of a &quot;leaky bucket&quot;. Here&#39;s a brief</span>
-<span class="sd">    comparison between a leaky and a token bucket:</span>
+<span class="sd">    There are many related datastructures / algorithms in this space</span>
+<span class="sd">    eith different trade-offs. What follows is a brief comparison</span>
+<span class="sd">    between them.</span>
 
-<span class="sd">     - Leaky buckets take a bursty stream of events and output them at a</span>
+<span class="sd">    #### Fixed window counters</span>
+
+<span class="sd">    Divide time in a series of buckets, and for each bucket keep track</span>
+<span class="sd">    of the number of events that have happened.</span>
+
+<span class="sd">    Example implementation using a `Dict[Time, Count]`:</span>
+
+<span class="sd">    ```</span>
+<span class="sd">    # An event happens at time `1612604808`</span>
+<span class="sd">    { 1612604808: 1 }</span>
+
+<span class="sd">    # Another event happens within the same second.</span>
+<span class="sd">    { 1612604808: 2 }</span>
+
+<span class="sd">    # Time moves forward into the next second.</span>
+
+<span class="sd">    # A new event happens. Remove the counter for the previous</span>
+<span class="sd">    # second and start anew.</span>
+<span class="sd">    { 1612604808: 2, 1612604809: 1 }</span>
+<span class="sd">      ^              ^ Limit checks now use this counter.</span>
+<span class="sd">      Previous key. Will be deleted.</span>
+<span class="sd">    ```</span>
+
+<span class="sd">    Based on these counters, you can implement your rate limiting logic.</span>
+<span class="sd">    Conceptually, this is very simple. However, there is a major limitation.</span>
+
+<span class="sd">    **You can only consider event rates for the current</span>
+<span class="sd">    bucket**. (Otherwise you would need to loop over the entire dict,</span>
+<span class="sd">    which is inefficient). This introduces inaccuracies in counting</span>
+<span class="sd">    when events happen when your buckets roll over.</span>
+
+<span class="sd">    Consider:</span>
+
+<span class="sd">    ```</span>
+<span class="sd">    # We&#39;d like to limit the number of requests to 10/second.</span>
+
+<span class="sd">    # At `1612604808.95` (near the end of second `1612604808`), 10</span>
+<span class="sd">    # requests come in.</span>
+<span class="sd">    { 1612604808: 10 }</span>
+
+<span class="sd">    # At `1612604809.05` (the beginning of second `1612604809`), 11</span>
+<span class="sd">    # more requests come in.</span>
+<span class="sd">    { 1612604808: 10, 1612604809: 10 }</span>
+<span class="sd">      ^               ^ Used for comparison</span>
+<span class="sd">      Not used anymore</span>
+<span class="sd">    ```</span>
+
+<span class="sd">    You conceptually had a rate limit of 10 requests / second. However</span>
+<span class="sd">    at the second boundaries, you can actually allow up to 20 requests.</span>
+
+<span class="sd">    #### Sliding window counter</span>
+
+<span class="sd">    This is an approach to fix the inaccuracies above.</span>
+
+<span class="sd">     - Store all event times in a sorted set, with millisecond accuracy.</span>
+<span class="sd">     - When new events come in, add their time values to the new set.</span>
+<span class="sd">     - Clean up all old requests from the set every second (this is fast</span>
+<span class="sd">       because the set is sorted).</span>
+
+<span class="sd">    This is more accurate, but trades accuracy for memory. Depending</span>
+<span class="sd">    on the limits that you set, this could be a dealbreaker.</span>
+
+<span class="sd">    #### Token buckets</span>
+
+<span class="sd">    Token buckets are a way to fix the accuracy and the memory usage</span>
+<span class="sd">    problems with the implementations above.</span>
+
+<span class="sd">    Each bucket starts out full of tokens.</span>
+
+<span class="sd">    |---| &lt;- capacty_current, capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    When events happen, the current capcaity is decremented:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |---| &lt;- capacity_current</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    When the bucket runs out of tokens, no new events are allowed:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___| &lt;- capacity_current</span>
+
+<span class="sd">    Over time, the capacity is restored at `restore_rate_hz`, and</span>
+<span class="sd">    new events are allowed again:</span>
+
+<span class="sd">    |   | &lt;- capacity_max</span>
+<span class="sd">    |---| &lt;- capacity_current</span>
+<span class="sd">    |   |</span>
+<span class="sd">    |___|</span>
+
+<span class="sd">    By keeping track of the `last_restore` time, we can perform this</span>
+<span class="sd">    restoration calcuation every time we try to take from the bucket.</span>
+
+<span class="sd">    We get the full accuracy offered by the sorted set, but with less</span>
+<span class="sd">    memory requirements. Nice.</span>
+
+<span class="sd">    (This class also has a `fill()` operation, which is helpful when</span>
+<span class="sd">    implementing circuit breakers.)</span>
+
+<span class="sd">    #### Leaky Buckets</span>
+
+<span class="sd">    **Token buckets and leaky buckets have different goals and usecases.**</span>
+<span class="sd">    But since they appear very similar on the surface, I&#39;m mentioning them</span>
+<span class="sd">    for completeness.</span>
+
+<span class="sd">    Both leaky and token buckets contain a backpressure mechanism, but</span>
+<span class="sd">    they have different goals:</span>
+
+<span class="sd">     - Leaky buckets turn bursty streams of events into a stream of</span>
 <span class="sd">       constant rate.</span>
-<span class="sd">     - Token buckets take a (potentially bursty) stream of events and impose</span>
-<span class="sd">       a maximum on the amount of burstiness.</span>
+<span class="sd">     - Token buckets make sure no more than `X` events happen over a</span>
+<span class="sd">       certain time window. The resulting stream has an upper bound on</span>
+<span class="sd">       the number of elements, but is still allowed to be bursty.</span>
+
+<span class="sd">    Or more concretely:</span>
+
+<span class="sd">     - Leaky buckets buffer requests and output them at a steady rate. Limits</span>
+<span class="sd">       are imposed when the buffer is full.</span>
+<span class="sd">     - Token buckets allow reqeusts immediately. Limits are imposed when more</span>
+<span class="sd">       than X requests happen in a period of time.</span>
+
+<span class="sd">    Here is a table which compares the two:</span>
+
+<span class="sd">    | bucket type             | token                  | leaky              |</span>
+<span class="sd">    |-------------------------|------------------------|--------------------|</span>
+<span class="sd">    | goal                    | impose upper bound     | control burstiness |</span>
+<span class="sd">    | requests happen         | immediately            | at leak rate       |</span>
+<span class="sd">    | backpressure when       | empty                  | full               |</span>
+<span class="sd">    | analogous datastructure | replenishing semaphore | bounded queue      |</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">capacity_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>
     <span class="n">capacity_current</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="n">restore_rate_hz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;How much capacity should be restored every second?&quot;&quot;&quot;</span>
     <span class="n">last_restore</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Time the last capacity restore took place.&quot;&quot;&quot;</span>
 
     <span class="n">clock</span><span class="p">:</span> <span class="n">Clock</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MonotonicClock</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;Clock implementation to use.</span>
+
+<span class="sd">    This is configurable because to facilitate testing the behavior of</span>
+<span class="sd">    this class without waiting for actual time to pass. See `breaking.clock`</span>
+<span class="sd">    for further details.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">last_restore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clock</span><span class="o">.</span><span class="n">seconds_since_epoch</span><span class="p">()</span>
@@ -281,33 +555,187 @@
 
                     <div class="docstring"><p>Impose an upper bound on a number of events over a time interval.</p>
 
-<p>USE CASES</p>
+<p>Use cases:</p>
 
 <ul>
 <li>Rate limiting the number of requests for clients.</li>
 <li>Circuit breaking after a certain number of exceptions have happened.</li>
 </ul>
 
-<p>BEHAVIOR</p>
+<h3 id="how-this-works">How this works</h3>
+
+<p>I will slowly build up to how token buckets work and why they are
+nice by showing other ways you could implement this (and
+limitations of those approaches).</p>
+
+<p>There are many related datastructures / algorithms in this space
+eith different trade-offs. What follows is a brief comparison
+between them.</p>
+
+<h4 id="fixed-window-counters">Fixed window counters</h4>
+
+<p>Divide time in a series of buckets, and for each bucket keep track
+of the number of events that have happened.</p>
+
+<p>Example implementation using a <code>Dict[Time, Count]</code>:</p>
+
+<pre><code># An event happens at time `1612604808`
+{ 1612604808: 1 }
+
+# Another event happens within the same second.
+{ 1612604808: 2 }
+
+# Time moves forward into the next second.
+
+# A new event happens. Remove the counter for the previous
+# second and start anew.
+{ 1612604808: 2, 1612604809: 1 }
+  ^              ^ Limit checks now use this counter.
+  Previous key. Will be deleted.
+</code></pre>
+
+<p>Based on these counters, you can implement your rate limiting logic.
+Conceptually, this is very simple. However, there is a major limitation.</p>
+
+<p><strong>You can only consider event rates for the current
+bucket</strong>. (Otherwise you would need to loop over the entire dict,
+which is inefficient). This introduces inaccuracies in counting
+when events happen when your buckets roll over.</p>
+
+<p>Consider:</p>
+
+<pre><code># We'd like to limit the number of requests to 10/second.
+
+# At `1612604808.95` (near the end of second `1612604808`), 10
+# requests come in.
+{ 1612604808: 10 }
+
+# At `1612604809.05` (the beginning of second `1612604809`), 11
+# more requests come in.
+{ 1612604808: 10, 1612604809: 10 }
+  ^               ^ Used for comparison
+  Not used anymore
+</code></pre>
+
+<p>You conceptually had a rate limit of 10 requests / second. However
+at the second boundaries, you can actually allow up to 20 requests.</p>
+
+<h4 id="sliding-window-counter">Sliding window counter</h4>
+
+<p>This is an approach to fix the inaccuracies above.</p>
 
 <ul>
-<li>At most <code>capacity_max</code> events can happen at once.</li>
-<li>When events happen, <code>capacity_current</code> is decremented.</li>
-<li>When <code>capacity_current</code> is <code>0</code>, there is no more capacity for extra
-events.</li>
-<li>Capacity is restored at a rate of <code>restore_rate_hz</code>. The bucket
-keeps track of when this last happens and restores as appropriate.</li>
+<li>Store all event times in a sorted set, with millisecond accuracy.</li>
+<li>When new events come in, add their time values to the new set.</li>
+<li>Clean up all old requests from the set every second (this is fast
+because the set is sorted).</li>
 </ul>
 
-<p>N.B. You might also have heard of a "leaky bucket". Here's a brief
-comparison between a leaky and a token bucket:</p>
+<p>This is more accurate, but trades accuracy for memory. Depending
+on the limits that you set, this could be a dealbreaker.</p>
+
+<h4 id="token-buckets">Token buckets</h4>
+
+<p>Token buckets are a way to fix the accuracy and the memory usage
+problems with the implementations above.</p>
+
+<p>Each bucket starts out full of tokens.</p>
+
+<p>|---| &lt;- capacty_current, capacity_max
+|   |
+|   |
+|___|</p>
+
+<p>When events happen, the current capcaity is decremented:</p>
+
+<p>|   | &lt;- capacity_max
+|   |
+|---| &lt;- capacity_current
+|___|</p>
+
+<p>When the bucket runs out of tokens, no new events are allowed:</p>
+
+<p>|   | &lt;- capacity_max
+|   |
+|   |
+|___| &lt;- capacity_current</p>
+
+<p>Over time, the capacity is restored at <code>restore_rate_hz</code>, and
+new events are allowed again:</p>
+
+<p>|   | &lt;- capacity_max
+|---| &lt;- capacity_current
+|   |
+|___|</p>
+
+<p>By keeping track of the <code>last_restore</code> time, we can perform this
+restoration calcuation every time we try to take from the bucket.</p>
+
+<p>We get the full accuracy offered by the sorted set, but with less
+memory requirements. Nice.</p>
+
+<p>(This class also has a <code>fill()</code> operation, which is helpful when
+implementing circuit breakers.)</p>
+
+<h4 id="leaky-buckets">Leaky Buckets</h4>
+
+<p><strong>Token buckets and leaky buckets have different goals and usecases.</strong>
+But since they appear very similar on the surface, I'm mentioning them
+for completeness.</p>
+
+<p>Both leaky and token buckets contain a backpressure mechanism, but
+they have different goals:</p>
 
 <ul>
-<li>Leaky buckets take a bursty stream of events and output them at a
+<li>Leaky buckets turn bursty streams of events into a stream of
 constant rate.</li>
-<li>Token buckets take a (potentially bursty) stream of events and impose
-a maximum on the amount of burstiness.</li>
+<li>Token buckets make sure no more than <code>X</code> events happen over a
+certain time window. The resulting stream has an upper bound on
+the number of elements, but is still allowed to be bursty.</li>
 </ul>
+
+<p>Or more concretely:</p>
+
+<ul>
+<li>Leaky buckets buffer requests and output them at a steady rate. Limits
+are imposed when the buffer is full.</li>
+<li>Token buckets allow reqeusts immediately. Limits are imposed when more
+than X requests happen in a period of time.</li>
+</ul>
+
+<p>Here is a table which compares the two:</p>
+
+<table>
+<thead>
+<tr>
+  <th>bucket type</th>
+  <th>token</th>
+  <th>leaky</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>goal</td>
+  <td>impose upper bound</td>
+  <td>control burstiness</td>
+</tr>
+<tr>
+  <td>requests happen</td>
+  <td>immediately</td>
+  <td>at leak rate</td>
+</tr>
+<tr>
+  <td>backpressure when</td>
+  <td>empty</td>
+  <td>full</td>
+</tr>
+<tr>
+  <td>analogous datastructure</td>
+  <td>replenishing semaphore</td>
+  <td>bounded queue</td>
+</tr>
+</tbody>
+</table>
 </div>
 
 
@@ -346,7 +774,9 @@ a maximum on the amount of burstiness.</li>
             <span class="name">restore_rate_hz</span><span class="annotation">: float</span>
         </div>
 
-        
+                    <div class="docstring"><p>How much capacity should be restored every second?</p>
+</div>
+
 
                             </div>
                             <div id="TokenBucket.last_restore" class="classattr">
@@ -354,7 +784,9 @@ a maximum on the amount of burstiness.</li>
             <span class="name">last_restore</span><span class="annotation">: float</span>
         </div>
 
-        
+                    <div class="docstring"><p>Time the last capacity restore took place.</p>
+</div>
+
 
                             </div>
                             <div id="TokenBucket.clock" class="classattr">
@@ -362,7 +794,13 @@ a maximum on the amount of burstiness.</li>
             <span class="name">clock</span><span class="annotation">: <a href="clock.html#Clock">breaking.clock.Clock</a></span>
         </div>
 
-        
+                    <div class="docstring"><p>Clock implementation to use.</p>
+
+<p>This is configurable because to facilitate testing the behavior of
+this class without waiting for actual time to pass. See <code><a href="clock.html">breaking.clock</a></code>
+for further details.</p>
+</div>
+
 
                             </div>
                             <div id="TokenBucket.has_tokens_left" class="classattr">
