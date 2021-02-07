@@ -1,0 +1,81 @@
+# Redis configuration.
+#
+# This file is not a synctactially valid Redis configuration file
+# yet. It contains expressions such as `${REPO_ROOT}`, which first
+# need to be replaced with a program like `envsubst`.
+
+# 1k => 1000 bytes
+# 1kb => 1024 bytes
+# 1m => 1000000 bytes
+# 1mb => 1024*1024 bytes
+# 1g => 1000000000 bytes
+# 1gb => 1024*1024*1024 bytes
+#
+# units are case insensitive so 1GB 1Gb 1gB are all the same.
+
+# Do not listen on a TCP socket, use the Unix socket configured below
+# instead.
+port 0
+
+# Specify the path for the Unix socket that will be used to listen for
+# incoming connections. There is no default, so Redis will not listen
+# on a unix socket when not specified.
+unixsocket redis.sock
+unixsocketperm 700
+
+# Close the connection after a client is idle for N seconds (0 to disable)
+timeout 0
+
+# By default Redis does not run as a daemon. Use 'yes' if you need it.
+# Note that Redis will write a pid file in /var/run/redis.pid when daemonized.
+daemonize no
+
+# Specify the server verbosity level.
+# This can be one of:
+# debug (a lot of information, useful for development/testing)
+# verbose (many rarely useful info, but not a mess like the debug level)
+# notice (moderately verbose, what you want in production probably)
+# warning (only very important / critical messages are logged)
+loglevel notice
+
+# Specify the log file name. The empty string forces Redis to log on the
+# standard output.
+logfile ""
+
+# Set the number of databases. The default database is DB 0, you can select
+# a different one on a per-connection basis using SELECT <dbid> where
+# dbid is a number between 0 and 'databases'-1
+databases 16
+
+# Save the DB on disk:
+#
+#   save <seconds> <changes>
+#
+# after 900 sec (15 min) if at least 1 key changed
+# after 300 sec (5 min) if at least 10 keys changed
+# after 60 sec if at least 10000 keys changed
+save 900 1
+save 300 10
+save 60 10000
+
+# Write a CRC64 checksum at the end of the RDB file to validate the integrity
+# when loading the snapshot from disk.
+rdbchecksum yes
+
+# The filename where to dump the DB
+dbfilename dump.rdb
+
+# The working directory for socket files, DB dumps, and AOF snapshots.
+dir ${REPO_ROOT}/ignore/redis
+
+# Enable AOF snapshotting in addition to the DB dump files. This means that
+# Redis will not loose data in the event of a power outage or similar.
+appendonly yes
+
+# The name of the append only file (default: "appendonly.aof")
+appendfilename "appendonly.aof"
+
+# Keep track of the last 128 commands which ran slower than `slower-than`
+# in microseconds.
+slowlog-log-slower-than 10000
+slowlog-max-len 128

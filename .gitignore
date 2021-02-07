@@ -6,3 +6,6 @@ __pycache__
 
 # Hypothesis test results
 .hypothesis
+
+# Generated / temporary files by build processes, tools, etc.
+ignore/

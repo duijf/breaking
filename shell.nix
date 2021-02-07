@@ -15,6 +15,8 @@ in
 pkgs.mkShell {
   name = "breaking-devenv";
   buildInputs = [
+    pkgs.envsubst
+    pkgs.redis
     pythonEnv
   ];
 
