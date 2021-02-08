@@ -225,7 +225,7 @@ class TokenBucket:
 
         self._update()
         if self.capacity_current - n < 0:
-            raise ValueError("Tried filling more than bucket capacity")
+            raise ValueError("Tried taking more than bucket capacity")
         self.capacity_current -= n
 
     def _update(self) -> None:
@@ -233,11 +233,10 @@ class TokenBucket:
         Update the current capacity based on the restore rate.
         """
         now = self.clock.seconds_since_epoch()
-        seconds_since_last_drain = now - self.last_restore
+        seconds_since_last_restore = now - self.last_restore
 
-        capacity_to_restore = min(
-            int(seconds_since_last_drain * self.restore_rate_hz),
-            self.capacity_max,
+        capacity_to_restore = int(
+            seconds_since_last_restore * self.restore_rate_hz
         )
         self.capacity_current = min(
             self.capacity_current + capacity_to_restore, self.capacity_max
