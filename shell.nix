@@ -9,6 +9,7 @@ let
     ps.mypy
     ps.pdoc
     ps.pytest
+    ps.redis
     ps.requests
   ]);
 in
