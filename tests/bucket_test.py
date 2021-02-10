@@ -49,7 +49,13 @@ def test_bucket_does_not_refill_beyond_max_capacity() -> None:
     assert not bucket.has_tokens_left()
 
 
-def test_bucket_fill_more_than_capacity() -> None:
-    bucket = TokenBucket(capacity_max=50, restore_rate_hz=1)
-    with pytest.raises(ValueError):
-        bucket.take(100)
+def test_bucket_fill_clips_between_max_capacity() -> None:
+    clock = MockClock()
+    bucket = TokenBucket(capacity_max=50, restore_rate_hz=1, clock=clock)
+    assert bucket.take(70) == 20
+    assert not bucket.has_tokens_left()
+    assert bucket.fill(70) == 20
+
+    bucket.take(50)
+    clock.advance_by(1)
+    assert bucket.fill(50) == 1

@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass, field
+from typing import Tuple
 
 from breaking.clock import Clock, MonotonicClock
 
@@ -207,28 +208,50 @@ class TokenBucket:
         """
         assert n >= 1, "`n` must be >= 1"
 
-        self._update()
+        self._refill_capacity()
         return self.capacity_current - n >= 0
 
-    def take(self, n: int = 1) -> None:
+    def fill(self, n: int = 1) -> int:
+        """
+        Put `n` items into the bucket.
+
+        You can use this method to "return capacity" to the bucket.
+        The bucket will never fill beyond `capacity_max`.
+
+        Returns:
+            The amount of tokens that didn't fit in the bucket anymore.
+            If this value is `> 0`, then the bucket didn't have capacity
+            for that number of items.
+        """
+        assert n >= 1, "`n` must be >= 1"
+        self._refill_capacity()
+        new_capacity, clipped = clip(
+            val=self.capacity_current + n, lower=0, upper=self.capacity_max
+        )
+        self.capacity_current = new_capacity
+        return clipped
+
+    def take(self, n: int = 1) -> int:
         """
         Take `n` items from the bucket.
 
-        It is the responsibility of the caller to check whether the bucket has
-        enough tokens to take first. Otherwise, the caller risks being thrown
-        exceptions.
+        You can use this method to "drain capacity" from the bucket. The
+        bucket capacity will never drop below `0`.
 
-        Raises
-          ValueError - when the bucket does not have enough tokens to take.
+        Returns:
+            The amount of tokens that could not be taken from the bucket.
+            If this value is `> 0`, then the bucket didn't have capacity
+            for that number of items.
         """
         assert n >= 1, "`n` must be >= 1"
+        self._refill_capacity()
+        new_capacity, clipped = clip(
+            val=self.capacity_current - n, lower=0, upper=self.capacity_max
+        )
+        self.capacity_current = new_capacity
+        return clipped
 
-        self._update()
-        if self.capacity_current - n < 0:
-            raise ValueError("Tried filling more than bucket capacity")
-        self.capacity_current -= n
-
-    def _update(self) -> None:
+    def _refill_capacity(self) -> None:
         """
         Update the current capacity based on the restore rate.
         """
@@ -243,3 +266,16 @@ class TokenBucket:
             self.capacity_current + capacity_to_restore, self.capacity_max
         )
         self.last_restore = now
+
+
+def clip(*, val: int, lower: int, upper: int) -> Tuple[int, int]:
+    """
+    Clip `val` between `lower` and `upper`.
+
+    Returns:
+        `(clipped_val, amount_clipped)`
+    """
+    assert lower < upper
+    clipped_val = max(lower, min(val, upper))
+    amount_clipped = abs(val - clipped_val)
+    return clipped_val, amount_clipped

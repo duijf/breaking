@@ -91,10 +91,4 @@ class CircuitBreaker:
         """
         Record a failed call in the state of this circuit breaker.
         """
-        try:
-            self._bucket.take()
-        except ValueError:
-            # We performed a request that we didn't have capacity
-            # for. This can happen because nothing is thread safe
-            # yet. Just ignore this for now.
-            pass
+        self._bucket.take()
