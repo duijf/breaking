@@ -47,10 +47,16 @@
                                     <a class="function" href="#TokenBucket.has_tokens_left">has_tokens_left</a>
                             </li>
                             <li>
+                                    <a class="function" href="#TokenBucket.fill">fill</a>
+                            </li>
+                            <li>
                                     <a class="function" href="#TokenBucket.take">take</a>
                             </li>
                     </ul>
 
+                </li>
+                <li>
+                        <a class="function" href="#clip">clip</a>
                 </li>
         </ul>
 
@@ -68,6 +74,7 @@
                 <summary class="button">View Source</summary>
                 <div class="codehilite"><pre><span></span><span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">from</span> <span class="nn">breaking.clock</span> <span class="kn">import</span> <span class="n">Clock</span><span class="p">,</span> <span class="n">MonotonicClock</span>
 
@@ -275,28 +282,50 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">0</span>
 
-    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">fill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Put `n` items into the bucket.</span>
+
+<span class="sd">        You can use this method to &quot;return capacity&quot; to the bucket.</span>
+<span class="sd">        The bucket will never fill beyond `capacity_max`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that didn&#39;t fit in the bucket anymore.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">+</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
+
+    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Take `n` items from the bucket.</span>
 
-<span class="sd">        It is the responsibility of the caller to check whether the bucket has</span>
-<span class="sd">        enough tokens to take first. Otherwise, the caller risks being thrown</span>
-<span class="sd">        exceptions.</span>
+<span class="sd">        You can use this method to &quot;drain capacity&quot; from the bucket. The</span>
+<span class="sd">        bucket capacity will never drop below `0`.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">          ValueError - when the bucket does not have enough tokens to take.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that could not be taken from the bucket.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Tried filling more than bucket capacity&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-=</span> <span class="n">n</span>
-
-    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_refill_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update the current capacity based on the restore rate.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -311,6 +340,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">+</span> <span class="n">capacity_to_restore</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">last_restore</span> <span class="o">=</span> <span class="n">now</span>
+
+
+<span class="k">def</span> <span class="nf">clip</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">lower</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clip `val` between `lower` and `upper`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `(clipped_val, amount_clipped)`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">lower</span> <span class="o">&lt;</span> <span class="n">upper</span>
+    <span class="n">clipped_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+    <span class="n">amount_clipped</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span> <span class="o">-</span> <span class="n">clipped_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">clipped_val</span><span class="p">,</span> <span class="n">amount_clipped</span>
 </pre></div>
 
             </details>
@@ -529,28 +571,50 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">0</span>
 
-    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">fill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Put `n` items into the bucket.</span>
+
+<span class="sd">        You can use this method to &quot;return capacity&quot; to the bucket.</span>
+<span class="sd">        The bucket will never fill beyond `capacity_max`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that didn&#39;t fit in the bucket anymore.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">+</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
+
+    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Take `n` items from the bucket.</span>
 
-<span class="sd">        It is the responsibility of the caller to check whether the bucket has</span>
-<span class="sd">        enough tokens to take first. Otherwise, the caller risks being thrown</span>
-<span class="sd">        exceptions.</span>
+<span class="sd">        You can use this method to &quot;drain capacity&quot; from the bucket. The</span>
+<span class="sd">        bucket capacity will never drop below `0`.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">          ValueError - when the bucket does not have enough tokens to take.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that could not be taken from the bucket.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Tried filling more than bucket capacity&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-=</span> <span class="n">n</span>
-
-    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_refill_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update the current capacity based on the restore rate.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -838,7 +902,7 @@ for further details.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">0</span>
 </pre></div>
 
@@ -849,48 +913,128 @@ for further details.</p>
 
 
                             </div>
-                            <div id="TokenBucket.take" class="classattr">
+                            <div id="TokenBucket.fill" class="classattr">
                                             <div class="attr function">
             
                 <span class="def">def</span>
-                <span class="name">take</span><span class="signature">(self, n: int = 1) -&gt; None</span>:
+                <span class="name">fill</span><span class="signature">(self, n: int = 1) -&gt; int</span>:
         </div>
 
                         <details>
                 <summary class="button">View Source</summary>
-                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">fill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Put `n` items into the bucket.</span>
+
+<span class="sd">        You can use this method to &quot;return capacity&quot; to the bucket.</span>
+<span class="sd">        The bucket will never fill beyond `capacity_max`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that didn&#39;t fit in the bucket anymore.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">+</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
+</pre></div>
+
+            </details>
+
+                    <div class="docstring"><p>Put <code>n</code> items into the bucket.</p>
+
+<p>You can use this method to "return capacity" to the bucket.
+The bucket will never fill beyond <code>capacity_max</code>.</p>
+
+<p>Returns:
+    The amount of tokens that didn't fit in the bucket anymore.
+    If this value is <code>&gt; 0</code>, then the bucket didn't have capacity
+    for that number of items.</p>
+</div>
+
+
+                            </div>
+                            <div id="TokenBucket.take" class="classattr">
+                                            <div class="attr function">
+            
+                <span class="def">def</span>
+                <span class="name">take</span><span class="signature">(self, n: int = 1) -&gt; int</span>:
+        </div>
+
+                        <details>
+                <summary class="button">View Source</summary>
+                <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Take `n` items from the bucket.</span>
 
-<span class="sd">        It is the responsibility of the caller to check whether the bucket has</span>
-<span class="sd">        enough tokens to take first. Otherwise, the caller risks being thrown</span>
-<span class="sd">        exceptions.</span>
+<span class="sd">        You can use this method to &quot;drain capacity&quot; from the bucket. The</span>
+<span class="sd">        bucket capacity will never drop below `0`.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">          ValueError - when the bucket does not have enough tokens to take.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The amount of tokens that could not be taken from the bucket.</span>
+<span class="sd">            If this value is `&gt; 0`, then the bucket didn&#39;t have capacity</span>
+<span class="sd">            for that number of items.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;`n` must be &gt;= 1&quot;</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Tried filling more than bucket capacity&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-=</span> <span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refill_capacity</span><span class="p">()</span>
+        <span class="n">new_capacity</span><span class="p">,</span> <span class="n">clipped</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span>
+            <span class="n">val</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">-</span> <span class="n">n</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">capacity_max</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity_current</span> <span class="o">=</span> <span class="n">new_capacity</span>
+        <span class="k">return</span> <span class="n">clipped</span>
 </pre></div>
 
             </details>
 
                     <div class="docstring"><p>Take <code>n</code> items from the bucket.</p>
 
-<p>It is the responsibility of the caller to check whether the bucket has
-enough tokens to take first. Otherwise, the caller risks being thrown
-exceptions.</p>
+<p>You can use this method to "drain capacity" from the bucket. The
+bucket capacity will never drop below <code>0</code>.</p>
 
-<p>Raises
-  ValueError - when the bucket does not have enough tokens to take.</p>
+<p>Returns:
+    The amount of tokens that could not be taken from the bucket.
+    If this value is <code>&gt; 0</code>, then the bucket didn't have capacity
+    for that number of items.</p>
 </div>
 
 
                             </div>
+                </section>
+                <section id="clip">
+                                <div class="attr function">
+            
+                <span class="def">def</span>
+                <span class="name">clip</span><span class="signature">(*, val: int, lower: int, upper: int) -&gt; Tuple[int, int]</span>:
+        </div>
+
+                        <details>
+                <summary class="button">View Source</summary>
+                <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">clip</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">lower</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clip `val` between `lower` and `upper`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `(clipped_val, amount_clipped)`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">lower</span> <span class="o">&lt;</span> <span class="n">upper</span>
+    <span class="n">clipped_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+    <span class="n">amount_clipped</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span> <span class="o">-</span> <span class="n">clipped_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">clipped_val</span><span class="p">,</span> <span class="n">amount_clipped</span>
+</pre></div>
+
+            </details>
+
+                    <div class="docstring"><p>Clip <code>val</code> between <code>lower</code> and <code>upper</code>.</p>
+
+<p>Returns:
+    <code>(clipped_val, amount_clipped)</code></p>
+</div>
+
+
                 </section>
     </main>
 </body>
